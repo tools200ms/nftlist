@@ -7,7 +7,8 @@ Updates NFT set by IP's to which domains defined in file resolve to.
 As an example: 
 Content of: /etc/nftsets/lxc-allowed-out.list
 
-> # Devuan repository: 
+> \# Devuan repository:
+> 
 > deb.devuan.org
 
 You can use comments by precceding text by **#**
