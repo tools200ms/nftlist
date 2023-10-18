@@ -1,0 +1,28 @@
+#!/sbin/openrc-run
+RULE_DIR="/etc/nftsets"
+
+depend() {
+	need nftables
+	after networking
+}
+
+start() {
+	for file in $(ls $RULE_DIR/*.list); do
+		TABLE=""
+		CHAIN=""
+		RULES=""
+		
+		for a in $(echo $file | tr "-" " "); do
+			if [ -z $TABLE ] ; then 
+				TABLE=$(basename $a)
+			elif [ -z $CHAIN ] ; then
+				CHAIN=$a
+			else 
+				RULES=$(echo $a | tr "." "\n" | head -1)
+			fi
+		done
+		
+		/root/bin/nft-update-sets.sh $TABLE $CHAIN $RULES $file
+	done
+}
+
