@@ -5,9 +5,8 @@
 function print_help () {
 	cat > $1 << EOF
 Command syntax: 
-$0 <table name> <chain type> <nft set name> <domain list>
-	Add IP elements to NFT set to which domain names defined in domain list
-	resolve to.
+$0 <table name> <chain type> <nft set name> <IP/domain list>
+	Add IP elements to NFT set. If domain name is provided it will be resolved to an IP address.
 
 $0 --help | -h
 	Print this help.
@@ -27,7 +26,6 @@ function print_msg_and_exit () {
 
 	exit $1
 }
-
 
 [ -n "$DEBUG" ] && [[ $(echo "$DEBUG" | tr '[:upper:]' '[:lower:]') =~ ^y|yes|1|on$ ]] && \
 	set -xe || \
@@ -65,26 +63,40 @@ if ! [[ "$SET_NAME" =~ ^([a-zA-Z0-9]){1,16}$ ]]; then
 fi
 
 if ! [ -f "$DOMAIN_LIST" ]; then 
-	print_msg_and_exit 3 "Provide domainname source list"
+	print_msg_and_exit 3 "Provide domain/IP source list"
 fi
 
+function addIp () {
+	$NFT add element $TABLE_NAME $CHAIN_TYPE $SET_NAME { $1 timeout 32h }
+}
+
+line_no=0
+
 while read line; do 
+	line_no=$(($line_no+1))
 	if [ -z "$line" ] || [ $(echo "$line" | cut -c -1) == "#" ]; then 
 		# skip empty line, and comments line
 		continue;
 	fi
 
-	if ! [[ "$line" =~ ^[a-zA-Z0-9|\-]{1,255}(\.[a-zA-Z0-9|\-]{1,255})*$ ]]; then
-		echo "Ignorring '$line', not valid domain name"
-		continue;
+	if [[ "$line" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9{1,3}](\/[0-9]{1,2})?$ ]] || \
+	   [[ "$line" =~ ^(\:\:)?([0-9a-fA-F]{1,4})((\:|\:\:)([0-9a-fA-F]{1,4})?){0,7}(\/[0-9]{1,3})?$ ]]; then
+		# ipv4 or ipv6 matched
+		ip_list=$line
+	elif [[ "$line" =~ ^[a-zA-Z0-9|\-]{1,255}(\.[a-zA-Z0-9|\-]{1,255})*$ ]]; then
+		DNAME=$line
+		# query CloudFlare DOH: 
+		ip_list=$(curl --silent -H "accept: application/dns-json" \
+				"https://1.1.1.1/dns-query?name=$DNAME&type=A" | \
+				jq -r -c '.Answer[] | select(.type == 1) | .data')
+	else 
+		# no domain nor IP mached, skip line
+		echo "WARN: Skipping line no. $line_no - no valid IP nor domain name: $line"
 	fi
 
-	DNAME=$line
-
-	for ipaddr in $(curl --silent -H "accept: application/dns-json" \
-		"https://1.1.1.1/dns-query?name=$DNAME&type=A" | \
-		jq -r -c '.Answer[] | select(.type == 1) | .data'); do
-		$NFT add element $TABLE_NAME $CHAIN_TYPE $SET_NAME {$ipaddr}
+	for ipaddr in $ip_list; do
+		addIp $ipaddr
+		#$NFT add element $TABLE_NAME $CHAIN_TYPE $SET_NAME {$ipaddr}
 		# add. options: timeout 25h 
 	done
 
