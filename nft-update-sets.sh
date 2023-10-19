@@ -86,9 +86,10 @@ while read line; do
 	elif [[ "$line" =~ ^[a-zA-Z0-9|\-]{1,255}(\.[a-zA-Z0-9|\-]{1,255})*$ ]]; then
 		DNAME=$line
 		# query CloudFlare DOH: 
-		ip_list=$(curl --silent -H "accept: application/dns-json" \
-				"https://1.1.1.1/dns-query?name=$DNAME&type=A" | \
-				jq -r -c '.Answer[] | select(.type == 1) | .data')
+		dns_resp=$(curl --silent -H "accept: application/dns-json" \
+				"https://1.1.1.1/dns-query?name=$DNAME&type=A")
+
+		ip_list=$(echo $dns_resp | jq -r -c '.Answer[] | select(.type == 1) | .data')
 	else 
 		# no domain nor IP mached, skip line
 		echo "WARN: Skipping line no. $line_no - no valid IP nor domain name: $line"
@@ -96,8 +97,6 @@ while read line; do
 
 	for ipaddr in $ip_list; do
 		addIp $ipaddr
-		#$NFT add element $TABLE_NAME $CHAIN_TYPE $SET_NAME {$ipaddr}
-		# add. options: timeout 25h 
 	done
 
 done < "$DOMAIN_LIST"
