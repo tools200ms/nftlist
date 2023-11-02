@@ -2,11 +2,14 @@
 # Based on: 
 # https://openwrt.org/docs/guide-user/firewall/filtering_traffic_at_ip_addresses_by_dns
 
+DEFAULT_TIMEOUT="timeout 25h"
+
 function print_help () {
 	cat > $1 << EOF
 Command syntax: 
-$0 <table name> <chain type> <nft set name> <IP/domain list>
-	Add IP elements to NFT set. If domain name is provided it will be resolved to an IP address.
+$0 <init|update|discard> <table name> <chain type> <nft set name> <IP/domain list>
+	init - add IP elements to NFT set. If domain name is provided it will be resolved to an IP address.
+	update - update IP elements in NFT set, it works only for sets with type 'timeout' flag.
 
 $0 --help | -h
 	Print this help.
@@ -40,15 +43,16 @@ if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
 	print_msg_and_exit 0
 fi
 
-if [ $# -ne 4 ]; then 
+# check no. of arguments
+if [ $# -ne 5 ]; then
 	print_msg_and_exit 1 "Incorrect syntax"
 fi
 
 # Set names must be 16 characters or less
-TABLE_NAME=$1
-CHAIN_TYPE=$2
-SET_NAME=$3
-DOMAIN_LIST=$4
+TABLE_NAME=$2
+CHAIN_TYPE=$3
+SET_NAME=$4
+ENTRY_LIST=$5
 
 if ! [[ "$TABLE_NAME" =~ ^([a-zA-Z0-9]){1,16}$ ]]; then
 	print_msg_and_exit 3 "Provide correct table name"
@@ -62,13 +66,58 @@ if ! [[ "$SET_NAME" =~ ^([a-zA-Z0-9]){1,16}$ ]]; then
 	print_msg_and_exit 3 "NFT set's name should be an alpha-numeric label of upto 16 char. long"
 fi
 
-if ! [ -f "$DOMAIN_LIST" ]; then 
+if ! [ -f "$ENTRY_LIST" ]; then
 	print_msg_and_exit 3 "Provide domain/IP source list"
 fi
 
-function addIp () {
-	$NFT add element $TABLE_NAME $CHAIN_TYPE $SET_NAME { $1 timeout 32h }
+function op_init () {
+	$NFT add element $TABLE_NAME $CHAIN_TYPE $SET_NAME { $1 $TIMEOUT }
 }
+
+function op_update () {
+	echo $NFT_SET_IPs | grep -q "\"$1\"" && \
+		$NFT delete element $TABLE_NAME $CHAIN_TYPE $SET_NAME { "$1" } || \
+		echo "New IP addr. (as it has not been found in a current '$SET_NAME' set): $1"
+
+	$NFT add element $TABLE_NAME $CHAIN_TYPE $SET_NAME { "$1" $TIMEOUT }
+}
+
+OP=$1
+case $OP in
+	init|update)
+		# get set IP's if any
+		ELEM_ARR="$(nft --json list set $TABLE_NAME $CHAIN_TYPE $SET_NAME | jq '.nftables[1].set.elem')"
+		if [ "$(echo $ELEM_ARR | jq '. != null')" = "true" ] ; then
+			# IP list can be an array or object
+			NFT_SET_IPs=$(echo "$ELEM_ARR" | jq '.[]')
+
+			if $(echo $NFT_SET_IPs | egrep -q "^\"") ; then
+				NFT_SET_IPs=$(echo $NFT_SET_IPs | tr '\n' ' ')
+			else
+				# it's an object
+				NFT_SET_IPs=$(echo $NFT_SET_IPs | jq '.elem["val"]' | tr '\n' ' ')
+			fi
+		fi
+
+		# check if timeout flag is set
+		if $(nft --json list set $TABLE_NAME $CHAIN_TYPE $SET_NAME | \
+				jq '.nftables[1].set.flags' | grep -q "\"timeout\"") ; then
+
+			TIMEOUT="$DEFAULT_TIMEOUT"
+		else
+			if [ $OP == 'update' ] ; then
+				echo "No timeout defined for '$SET_NAME', skipping update"
+				exit 0
+			fi
+
+			TIMEOUT=""
+		fi
+	;;
+	*)
+		print_msg_and_exit 1 "Invalid operation: "
+	;;
+esac
+
 
 line_no=0
 
@@ -99,9 +148,9 @@ while read line; do
 	fi
 
 	for ipaddr in $ip_list; do
-		addIp $ipaddr
+		op_$OP $ipaddr
 	done
 
-done < "$DOMAIN_LIST"
+done < "$ENTRY_LIST"
 
 exit 0

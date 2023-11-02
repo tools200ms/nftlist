@@ -1,0 +1,11 @@
+
+*~
+*.o
+*.so
+build/*
+release/*
+test/data/*
+
+# Development IDEs:
+.kdev4/*
+*.kdev4
