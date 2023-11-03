@@ -2,7 +2,21 @@
 # Based on: 
 # https://openwrt.org/docs/guide-user/firewall/filtering_traffic_at_ip_addresses_by_dns
 
-DEFAULT_TIMEOUT="timeout 25h"
+[ -n "$PRETEND" ] && [[ $(echo "$PRETEND" | tr '[:upper:]' '[:lower:]') =~ ^y|yes|1|on$ ]] && \
+        NFT="echo nft(pretend) " || NFT="nft"
+
+[ -n "$DEBUG" ] && [[ $(echo "$DEBUG" | tr '[:upper:]' '[:lower:]') =~ ^y|yes|1|on$ ]] && \
+        set -xe || set -e
+
+
+if [ -f /etc/conf.d/nft-helper ] ; then
+        . /etc/conf.d/nft-helper
+fi
+
+if [[ "$IP_TIMEOUT" =~ ^([0-9]{1,3}[s|m|h|d]){1,4}?$ ]] ; then 
+        DEFAULT_TIMEOUT="timeout $IP_TIMEOUT"
+fi
+
 
 function print_help () {
 	cat > $1 << EOF
@@ -29,14 +43,6 @@ function print_msg_and_exit () {
 
 	exit $1
 }
-
-[ -n "$DEBUG" ] && [[ $(echo "$DEBUG" | tr '[:upper:]' '[:lower:]') =~ ^y|yes|1|on$ ]] && \
-	set -xe || \
-	set -e
-
-[ -n "$PRETEND" ] && [[ $(echo "$PRETEND" | tr '[:upper:]' '[:lower:]') =~ ^y|yes|1|on$ ]] && \
-	NFT="echo nft(pretend) " || \
-	NFT="nft"
 
 
 if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then 
