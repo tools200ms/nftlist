@@ -1,0 +1,9 @@
+
+services:
+  nfthelper-live:
+    build:
+      context: .
+    volumes:
+      - nft-helper:/etc/init.d/nft-helper
+      - nft-helper.sh:/usr/local/bin/nft-helper.sh
+      - nft-helper.daily.sh:/etc/periodic/daily/nft-helper.daily.sh
