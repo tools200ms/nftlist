@@ -1,17 +1,32 @@
-# NFT Helper - filter trafic by domain names
-This set of scripts basing on a domain name list resolves its IP's and updates NFT firewall accordingly.
+# NFT Helper - filter traffic by domain names
+NFT Helper scripts has been developed to add domain name filtering capabilities to NFT firewall.
+Desired domain names are read from configuration file, names are resolved to IP's that is used to
+update NFT - thus to limit traffic to a limited domain set.
 
-It makes posible for instance to limit outboud connectins from continer to IPs used by disribution repositories. Therefore, continer's outboud connectivity can be lockup exactly into recources it nedds - repositories for updates.
+It's not a perfect filtering as different domain names share common IP's. Encrypted connections make not possible for firewall to validate destination domain. Therefore some extra names can 'sneak' under the radar. However taking into account how huge internet is this issue is absolutely negligible.
 
-I tested this script with Alpine and OpenRC, the configuration looks as follows: 
-/etc/init.d/nft-update - OpenRC script to add filtering rules
-/etc/nftsets/ - directory holding domain name and IP's lists
-/root/bin/nft-update-sets.sh - main script that does domain name resolution and sets NFT
+NFT Helper is useful with containerization/virtualisation technics where running VMs can be limited to exact resources they need.
 
-Domain names are resolved using CloudFlares 1.1.1.1 DOH (DNS over HTTP(s)) server. This is accually the most secure way to query domain names.
+NFT Helper is a set of scripts developed for Alpine Linux:
+`/etc/init.d/nft-helper` - OpenRC script to ba launched in 'default' runlevel
+`/etc/periodic/daily/nft-helper.daily.sh` - Script to be launched daily to refresh IP list
+`/etc/nftsets/` - directory holding configuration
+`/usr/local/bin/nft-helper.sh` - main script that does domain name resolution and sets NFT
 
-## How to
-First define aproperiate NFT set, for instnce: 
+---
+**NOTE 1: **
+Domain names are resolved using CloudFlares 1.1.1.1 DOH (DNS over HTTP(s)) server. This is actually the most secure way to query domain names.
+---
+
+---
+**NOTE 2: **
+`A` or `AAAA` records can change over time, therefore firewall shall be updated periodically. This is the role for the script `/etc/periodic/daily/nft-helper.daily.sh`.
+---
+
+## Configuration
+IP addresses are grouped within 'NFT sets', sets are defined as part of table chain configuration.
+To use `NFT Helper` define set such as:
+
 ```
 table inet filter {
        set crepo4http {
@@ -20,28 +35,56 @@ table inet filter {
        }
 }
 ```
-Script must be 'aware' of table name, chain type and set name, so the list of domains can be added to aproperiate set (after resolving into IP). Therefore. the configuration file should have strict name, for instance:
-/etc/nftsets/inet-filter-crepo4http.list
+IP address elements will be added by `NFT Helper`. There must be however protocol type defined: `ipv4_addr` or `ipv6_addr` and `timeout` flag added.
+This snippet can be defined in `/etc/nftables.nft` or drop in `/etc/nftables.d/`.
+
+`/etc/nftsets/` holds files with a list of domain names, the file name must follow specific name schema:
 \<table name>-<chain type>-<set name>.list
+For instance:
+\/etc/nftsets/inet-filter-crepo4http.list
+
 
 The content of the file might be: 
 ```
 # Devuan repository for continer upodates
+
 deb.devuan.org
 deb.debian.org
 ```
 
-Comments starting with \# can be used, also, if you need you can pleace an IPv4 or IPv6 adress, eg:
+Comments starting with \# can be used, also, you can mix domain names and IPv4 or IPv6 address, e.g.:
 >\# Devuan repository for continer upodates
 >deb.devuan.org  
 >deb.debian.org
 > \# IP address will be passed straight to NFT
 >146.75.118.132
 
-`nft-update start` reads configuration files launces /root/bin/nft-update-sets.sh which resolves domain names and updates proper NFT sets.
+Finally add 'NFT Helper' to OpenRC:
+```
+rc-update add /etc/init.d/nft-helper default
+```
+## Running
+
+`service nft-helper start` reads the configuration and launches `nft-helper.sh` to update NFT ruleset.
 
 ## Testing
-You can see what NFT commands /root/bin/nft-update-sets.sh would call by `PRETEND` variable to 'yes'
+You can see what NFT commands /root/bin/nft-update-sets.sh would do by setting `PRETEND` variable to 'yes'
 ```
-PRETEND=yes /root/bin/nft-update-sets.sh tablef filter testset /etc/nftsets/tablef-filter-testset.list
+PRETEND=yes nft-helper.sh tablef filter testset /etc/nftsets/tablef-filter-testset.list
 ```
+Changes can be verified with:
+```
+# Reset firewall
+service nftables restart
+
+# checkout defined rules
+nft list ruleset
+
+# start NFT Helper:
+service nft-helper start
+
+# and verify what has been changed:
+nft list ruleset
+```
+
+Enjoy!
