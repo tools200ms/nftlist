@@ -68,7 +68,7 @@ rc-update add /etc/init.d/nft-helper default
 `service nft-helper start` reads the configuration and launches `nft-helper.sh` that updates NFT.
 
 ## Testing
-You can see what NFT `nft-helper.sh` would do by setting `PRETEND` variable to 'yes'
+You can see what `nft-helper.sh` would do by setting `PRETEND` variable to 'yes'
 ```
 PRETEND=yes nft-helper.sh tablef filter testset /etc/nftsets/tablef-filter-testset.list
 ```
