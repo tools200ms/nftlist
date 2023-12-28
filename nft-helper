@@ -5,6 +5,7 @@ RULE_DIR="/etc/nftsets"
 
 depend() {
 	need nftables
+	before ulogd
 	after networking
 }
 
