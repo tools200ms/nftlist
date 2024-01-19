@@ -13,17 +13,17 @@ if [ -f /etc/conf.d/nft-helper ] ; then
         . /etc/conf.d/nft-helper
 fi
 
-if [[ "$IP_TIMEOUT" =~ ^([0-9]{1,3}[s|m|h|d]){1,4}?$ ]] ; then 
-        DEFAULT_TIMEOUT="timeout $IP_TIMEOUT"
+if [[ "$IP_TIMEOUT" =~ ^([0-9]{1,3}[s|m|h|d]){1,4}$ ]] ; then
+        TIMEOUT_FLAG="timeout $IP_TIMEOUT"
 fi
 
 
 function print_help () {
 	cat > $1 << EOF
 Command syntax: 
-$0 <init|update|discard> <table name> <chain type> <nft set name> <IP/domain list>
+$0 <init|update|discard> <address family> <table name> <nft set name> <IP/domain list>
 	init - add IP elements to NFT set. If domain name is provided it will be resolved to an IP address.
-	update - update IP elements in NFT set, it works only for sets with type 'timeout' flag.
+	update - update IP elements in NFT set, it works only for sets with 'timeout' flag defined.
 
 $0 --help | -h
 	Print this help.
@@ -55,20 +55,20 @@ if [ $# -ne 5 ]; then
 fi
 
 # Set names must be 16 characters or less
-TABLE_NAME=$2
-CHAIN_TYPE=$3
+ADDR_FAMILY=$2
+TABLE_NAME=$3
 SET_NAME=$4
 ENTRY_LIST=$5
 
-if ! [[ "$TABLE_NAME" =~ ^([a-zA-Z0-9]){1,16}$ ]]; then
+if ! [[ "$ADDR_FAMILY" =~ ^(ip|ip6|inet|arp|bridge|netdev)$ ]]; then
+	print_msg_and_exit 3 "Provide address family name"
+fi
+
+if ! [[ "$TABLE_NAME" =~ ^([a-zA-Z0-9_\.]){1,16}$ ]]; then
 	print_msg_and_exit 3 "Provide correct table name"
 fi
 
-if ! [[ "$CHAIN_TYPE" =~ ^(filter|route|nat)$ ]]; then
-	print_msg_and_exit 3 "Provide chain type"
-fi
-
-if ! [[ "$SET_NAME" =~ ^([a-zA-Z0-9]){1,16}$ ]]; then 
+if ! [[ "$SET_NAME" =~ ^([a-zA-Z0-9]){1,16}$ ]]; then
 	print_msg_and_exit 3 "NFT set's name should be an alpha-numeric label of upto 16 char. long"
 fi
 
@@ -77,22 +77,23 @@ if ! [ -f "$ENTRY_LIST" ]; then
 fi
 
 function op_init () {
-	$NFT add element $TABLE_NAME $CHAIN_TYPE $SET_NAME { $1 $TIMEOUT }
+	$NFT add element $ADDR_FAMILY $TABLE_NAME $SET_NAME { $1 $TIMEOUT }
 }
 
 function op_update () {
 	echo $NFT_SET_IPs | grep -q "\"$1\"" && \
-		$NFT delete element $TABLE_NAME $CHAIN_TYPE $SET_NAME { "$1" } || \
+		$NFT delete element $ADDR_FAMILY $TABLE_NAME $SET_NAME { "$1" } || \
 		echo "New IP addr. (as it has not been found in a current '$SET_NAME' set): $1"
 
-	$NFT add element $TABLE_NAME $CHAIN_TYPE $SET_NAME { "$1" $TIMEOUT }
+	$NFT add element $ADDR_FAMILY $TABLE_NAME $SET_NAME { "$1" $TIMEOUT }
 }
 
+# preparations before loading data
 OP=$1
 case $OP in
 	init|update)
 		# get set IP's if any
-		ELEM_ARR="$(nft --json list set $TABLE_NAME $CHAIN_TYPE $SET_NAME | jq '.nftables[1].set.elem')"
+		ELEM_ARR="$(nft --json list set $ADDR_FAMILY $TABLE_NAME $SET_NAME | jq '.nftables[1].set.elem')"
 		if [ "$(echo $ELEM_ARR | jq '. != null')" = "true" ] ; then
 			# IP list can be an array or object
 			NFT_SET_IPs=$(echo "$ELEM_ARR" | jq '.[]')
@@ -106,10 +107,10 @@ case $OP in
 		fi
 
 		# check if timeout flag is set
-		if $(nft --json list set $TABLE_NAME $CHAIN_TYPE $SET_NAME | \
+		if $(nft --json list set $ADDR_FAMILY $TABLE_NAME $SET_NAME | \
 				jq '.nftables[1].set.flags' | grep -q "\"timeout\"") ; then
 
-			TIMEOUT="$DEFAULT_TIMEOUT"
+			TIMEOUT="$TIMEOUT_FLAG"
 		else
 			if [ $OP == 'update' ] ; then
 				echo "No timeout defined for '$SET_NAME', skipping update"
@@ -125,8 +126,8 @@ case $OP in
 esac
 
 
+# read conf. file
 line_no=0
-
 while read line; do 
 	line_no=$(($line_no+1))
 	if [ -z "$line" ] || [ $(echo "$line" | cut -c -1) == "#" ]; then 
@@ -134,11 +135,11 @@ while read line; do
 		continue;
 	fi
 
-	if [[ "$line" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] ; then
+	if [[ "$line" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(\/[0-9]{1,2})?$ ]] ; then
 		# ipv4 matched
 		ip_list=$line
-	elif [[ "$line" =~ ^(\:\:)?[0-9a-fA-F]{1,4}(\:\:?[0-9a-fA-F]{1,4}){0,7}(\:\:)?$ ]] && \
-	     [[ "$line" =~ ^.*\:.*\:.*$ ]]; then
+	elif [[ "$line" =~ ^(\:\:)?[0-9a-fA-F]{1,4}(\:\:?[0-9a-fA-F]{1,4}){0,7}(\:\:)?(\/[0-9]{1,2})?$ ]] && \
+	     [[ "$line" =~ ^.*\:.*\:.*(\/[0-9]{1,2})?$ ]]; then
 		# ipv6 matched
 		ip_list=$line
 	elif [[ "$line" =~ ^[a-zA-Z0-9|\-]{1,255}(\.[a-zA-Z0-9|\-]{1,255})*$ ]]; then

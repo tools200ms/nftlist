@@ -4,6 +4,15 @@ services:
     build:
       context: .
     volumes:
-      - nft-helper:/etc/init.d/nft-helper
-      - nft-helper.sh:/usr/local/bin/nft-helper.sh
-      - nft-helper.daily.sh:/etc/periodic/daily/nft-helper.daily.sh
+      - ./src/nft-helper:/etc/init.d/nft-helper
+      - ./src/nft-helper.sh:/usr/local/bin/nft-helper.sh
+      - ./src/nft-helper.daily.sh:/etc/periodic/daily/nft-helper.daily.sh
+
+      - ./test/nft_settings.sh:/root/nft_settings.sh
+      - ./test/test_tbl-test_out-testset.list:/etc/nftdef/test_tbl-test_out-testset.list
+
+      - ./lists:/etc/netlists/
+
+    cap_add: ['SYS_ADMIN']
+    privileged: true
+

@@ -1,7 +1,7 @@
 #!/sbin/openrc-run
 
 extra_started_commands="refresh"
-RULE_DIR="/etc/nftsets"
+RULE_DIR="/etc/nftdef"
 
 depend() {
 	need nftables
