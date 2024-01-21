@@ -20,14 +20,14 @@ directory. The files should end with `*.list` extension to be loaded.
 
 
 **NOTE 1:**
-Domain names are resolved using CloudFlares 1.1.1.1 DOH (DNS over HTTP(s)) server. This is actually the most secure way to query domain names.
+Domain names are resolved using CloudFlare 1.1.1.1 DOH (DNS over HTTP(s)) server. This is actually the most secure way to query domain names.
 
 
 **NOTE 2:**
 `A` or `AAAA` records can change over time, therefore firewall shall be updated periodically. This is the role for the script `/etc/periodic/daily/nft-helper.daily.sh`.
 
 ## Configuration
-IP addresses are grouped within ['NFT sets'](https://wiki.nftables.org/wiki-nftables/index.php/Sets), sets are defined as a part of a firewall table. To learn NFT, NFT Quick reference in 10 minutes [here]](https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes).
+IP addresses are grouped within `NFT sets`, sets are defined as a part of a firewall table. To learn NFT, NFT Quick reference in 10 minutes [here](https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes).
 
 ### 1. Define NFT set to be feed by NFT-helper
 Define a set such as:
