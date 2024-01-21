@@ -34,10 +34,10 @@ Define a set such as:
 
 ```
 table inet filter {
-       **set crepo4http {
+       set crepo4http {
                type ipv4_addr ;
                flags timeout ;
-       }**
+       }
 }
 ```
 This can be added to `/etc/nftables.nft` or preferably dropped as a separate configuration in `/etc/nftables.d/` directory.
