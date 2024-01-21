@@ -92,6 +92,9 @@ function op_update () {
 OP=$1
 case $OP in
 	init|update)
+
+		SET_TYPE=$(nft --json list set $ADDR_FAMILY $TABLE_NAME $SET_NAME | jq -r '.nftables[1].set.type')
+
 		# get set IP's if any
 		ELEM_ARR="$(nft --json list set $ADDR_FAMILY $TABLE_NAME $SET_NAME | jq '.nftables[1].set.elem')"
 		if [ "$(echo $ELEM_ARR | jq '. != null')" = "true" ] ; then
@@ -130,31 +133,45 @@ esac
 line_no=0
 while read line; do 
 	line_no=$(($line_no+1))
-	if [ -z "$line" ] || [ $(echo "$line" | cut -c -1) == "#" ]; then 
-		# skip empty line, and comments line
+
+	# cut comment and trim line
+	line=$(echo "$line" | sed 's/\#.*/ /' | xargs)
+	if [ -z "$line" ] ; then
+		# skip empty line
 		continue;
 	fi
 
+
 	if [[ "$line" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(\/[0-9]{1,2})?$ ]] ; then
 		# ipv4 matched
-		ip_list=$line
+		ip4_list=$line
 	elif [[ "$line" =~ ^(\:\:)?[0-9a-fA-F]{1,4}(\:\:?[0-9a-fA-F]{1,4}){0,7}(\:\:)?(\/[0-9]{1,2})?$ ]] && \
 	     [[ "$line" =~ ^.*\:.*\:.*(\/[0-9]{1,2})?$ ]]; then
 		# ipv6 matched
-		ip_list=$line
+		ip6_list=$line
 	elif [[ "$line" =~ ^[a-zA-Z0-9|\-]{1,255}(\.[a-zA-Z0-9|\-]{1,255})*$ ]]; then
 		DNAME=$line
 		# query CloudFlare DOH: 
-		dns_resp=$(curl --silent -H "accept: application/dns-json" \
-				"https://1.1.1.1/dns-query?name=$DNAME&type=A")
 
-		ip_list=$(echo $dns_resp | jq -r -c '.Answer[] | select(.type == 1) | .data')
+		if [ $SET_TYPE == 'ipv4_addr' -o $SET_TYPE == 'ether_addr' ] ; then
+			dns_aresp=$(curl --silent -H "accept: application/dns-json" \
+							"https://1.1.1.1/dns-query?name=$DNAME&type=A")
+			ip4_list=$(echo $dns_aresp | jq -r -c ".Answer[] | select(.name == \"$DNAME\") | .data")
+		fi
+
+		if [ $SET_TYPE == 'ipv6_addr' -o $SET_TYPE == 'ether_addr' ] ; then
+			dns_aaaaresp=$(curl --silent -H "accept: application/dns-json" \
+							"https://1.1.1.1/dns-query?name=$DNAME&type=AAAA")
+
+			ip6_list=$(echo $dns_aaaaresp | jq -r -c ".Answer[] | select(.name == \"$DNAME\") | .data")
+		fi
+
 	else 
 		# no domain nor IP mached, skip line
 		echo "WARN: Skipping line no. $line_no - no valid IP nor domain name: $line"
 	fi
 
-	for ipaddr in $ip_list; do
+	for ipaddr in $ip4_list $ip6_list; do
 		op_$OP $ipaddr
 	done
 
