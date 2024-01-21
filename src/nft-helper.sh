@@ -94,6 +94,12 @@ case $OP in
 	init|update)
 
 		SET_TYPE=$(nft --json list set $ADDR_FAMILY $TABLE_NAME $SET_NAME | jq -r '.nftables[1].set.type')
+		SET_FLAGS=$(nft --json list set $ADDR_FAMILY $TABLE_NAME $SET_NAME | jq -r '.nftables[1].set.flags')
+
+		if [ $(echo $SET_FLAGS | jq 'index("interval")') != 'null' ] && [ $OP == "update" ] ; then
+			echo "Updates for 'interval' sets not supported, doing nothing"
+			exit 0
+		fi
 
 		# get set IP's if any
 		ELEM_ARR="$(nft --json list set $ADDR_FAMILY $TABLE_NAME $SET_NAME | jq '.nftables[1].set.elem')"
