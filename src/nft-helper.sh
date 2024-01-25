@@ -13,17 +13,20 @@ if [ -f /etc/conf.d/nft-helper ] ; then
         . /etc/conf.d/nft-helper
 fi
 
-if [[ "$IP_TIMEOUT" =~ ^([0-9]{1,3}[s|m|h|d]){1,4}$ ]] ; then
-        TIMEOUT_FLAG="timeout $IP_TIMEOUT"
+if [[ ! "$IP_TIMEOUT" =~ ^([0-9]{1,3}[s|m|h|d]){1,4}$ ]] ; then
+	IP_TIMEOUT="3d"
+	echo "Setting default IP timeout to: $IP_TIMEOUT"
 fi
+
+TIMEOUT_FLAG="timeout $IP_TIMEOUT"
 
 
 function print_help () {
 	cat > $1 << EOF
 Command syntax: 
-$0 <init|update|discard> <address family> <table name> <nft set name> <IP/domain list>
-	init - add IP elements to NFT set. If domain name is provided it will be resolved to an IP address.
-	update - update IP elements in NFT set, it works only for sets with 'timeout' flag defined.
+$0 <init|update|discard> <IP/domain list>
+	init - add IP elements to NFT set. If domain name is provided it will be resolved to an IP address
+	update - update IP elements in NFT set
 
 $0 --help | -h
 	Print this help.
@@ -50,51 +53,82 @@ if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
 fi
 
 # check no. of arguments
-if [ $# -ne 5 ]; then
+if [ $# -ne 2 ]; then
 	print_msg_and_exit 1 "Incorrect syntax"
 fi
 
 # Set names must be 16 characters or less
-ADDR_FAMILY=$2
-TABLE_NAME=$3
-SET_NAME=$4
-ENTRY_LIST=$5
+_ADDR_FAMILY=
+_TABLE_NAME=
+_SET_NAME=
 
-if ! [[ "$ADDR_FAMILY" =~ ^(ip|ip6|inet|arp|bridge|netdev)$ ]]; then
-	print_msg_and_exit 3 "Provide address family name"
-fi
+ENTRY_LIST=$2
 
-if ! [[ "$TABLE_NAME" =~ ^([a-zA-Z0-9_\.]){1,16}$ ]]; then
-	print_msg_and_exit 3 "Provide correct table name"
-fi
+function set_afamily() {
+	if ! [[ "$1" =~ ^(ip|ip6|inet|arp|bridge|netdev)$ ]]; then
+		print_msg_and_exit 3 "Provide address family name"
+	fi
 
-if ! [[ "$SET_NAME" =~ ^([a-zA-Z0-9]){1,16}$ ]]; then
-	print_msg_and_exit 3 "NFT set's name should be an alpha-numeric label of upto 16 char. long"
-fi
+	_ADDR_FAMILY=$1
+}
+
+function set_tblname () {
+	if ! [[ "$1" =~ ^([a-zA-Z0-9_\.]){1,16}$ ]]; then
+		print_msg_and_exit 3 "Provide correct table name"
+	fi
+
+	_TABLE_NAME=$1
+}
+
+function set_setname () {
+	if ! [[ "$1" =~ ^([a-zA-Z0-9]){1,16}$ ]]; then
+		print_msg_and_exit 3 "NFT set's name should be an alpha-numeric label of upto 16 char. long"
+	fi
+
+	_SET_NAME=$1
+}
+
 
 if ! [ -f "$ENTRY_LIST" ]; then
 	print_msg_and_exit 3 "Provide domain/IP source list"
 fi
 
+function instr () {
+
+	case $1 in
+		\@set)
+			set_afamily $2
+			set_tblname $3
+			set_setname $4
+
+			load_set
+		;;
+
+		*)
+			echo "Unknown instruction '$1'"
+	esac
+}
+
 function op_init () {
-	$NFT add element $ADDR_FAMILY $TABLE_NAME $SET_NAME { $1 $TIMEOUT }
+	$NFT add element $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME { "$1" "$_FLAG_ARG" }
 }
 
 function op_update () {
-	echo $NFT_SET_IPs | grep -q "\"$1\"" && \
-		$NFT delete element $ADDR_FAMILY $TABLE_NAME $SET_NAME { "$1" } || \
-		echo "New IP addr. (as it has not been found in a current '$SET_NAME' set): $1"
+	echo $_NFT_SET_IPs | grep -q "\"$1\"" && \
+		$NFT delete element $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME { "$1" } || \
+		echo "New IP addr. (as it has not been found in a current '$_SET_NAME' set): $1"
 
-	$NFT add element $ADDR_FAMILY $TABLE_NAME $SET_NAME { "$1" $TIMEOUT }
+	$NFT add element $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME { "$1" "$_FLAG_ARG" }
 }
 
 # preparations before loading data
 OP=$1
-case $OP in
+function load_set () {
+	case $OP in
 	init|update)
 
-		SET_TYPE=$(nft --json list set $ADDR_FAMILY $TABLE_NAME $SET_NAME | jq -r '.nftables[1].set.type')
-		SET_FLAGS=$(nft --json list set $ADDR_FAMILY $TABLE_NAME $SET_NAME | jq -r '.nftables[1].set.flags')
+		SET_TYPE=$(nft --json list set $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME | jq -r '.nftables[1].set.type')
+		SET_FLAGS=$(nft --json list set $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME | jq -r '.nftables[1].set.flags')
 
 		if [ $(echo $SET_FLAGS | jq 'index("interval")') != 'null' ] && [ $OP == "update" ] ; then
 			echo "Updates for 'interval' sets not supported, doing nothing"
@@ -102,38 +136,36 @@ case $OP in
 		fi
 
 		# get set IP's if any
-		ELEM_ARR="$(nft --json list set $ADDR_FAMILY $TABLE_NAME $SET_NAME | jq '.nftables[1].set.elem')"
+		ELEM_ARR="$(nft --json list set $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME | jq '.nftables[1].set.elem')"
 		if [ "$(echo $ELEM_ARR | jq '. != null')" = "true" ] ; then
 			# IP list can be an array or object
 			NFT_SET_IPs=$(echo "$ELEM_ARR" | jq '.[]')
 
 			if $(echo $NFT_SET_IPs | egrep -q "^\"") ; then
-				NFT_SET_IPs=$(echo $NFT_SET_IPs | tr '\n' ' ')
+				_NFT_SET_IPs=$(echo $NFT_SET_IPs | tr '\n' ' ')
 			else
 				# it's an object
-				NFT_SET_IPs=$(echo $NFT_SET_IPs | jq '.elem["val"]' | tr '\n' ' ')
+				_NFT_SET_IPs=$(echo $NFT_SET_IPs | jq '.elem["val"]' | tr '\n' ' ')
 			fi
 		fi
 
 		# check if timeout flag is set
-		if $(nft --json list set $ADDR_FAMILY $TABLE_NAME $SET_NAME | \
-				jq '.nftables[1].set.flags' | grep -q "\"timeout\"") ; then
-
-			TIMEOUT="$TIMEOUT_FLAG"
+		if [ $(echo $SET_FLAGS | jq 'index("timeout")') != 'null' ] ; then
+			_FLAG_ARG="$TIMEOUT_FLAG"
 		else
 			if [ $OP == 'update' ] ; then
 				echo "No timeout defined for '$SET_NAME', skipping update"
 				exit 0
 			fi
 
-			TIMEOUT=""
+			_FLAG_ARG=""
 		fi
 	;;
 	*)
 		print_msg_and_exit 1 "Invalid operation: "
 	;;
-esac
-
+	esac
+}
 
 # read conf. file
 line_no=0
@@ -155,7 +187,7 @@ while read line; do
 	     [[ "$line" =~ ^.*\:.*\:.*(\/[0-9]{1,2})?$ ]]; then
 		# ipv6 matched
 		ip6_list=$line
-	elif [[ "$line" =~ ^[a-zA-Z0-9|\-]{1,255}(\.[a-zA-Z0-9|\-]{1,255})*$ ]]; then
+	elif [[ "$line" =~ ^[a-zA-Z0-9|\-]{1,255}(\.[a-zA-Z0-9|\-]{1,255})*$ ]] ; then
 		DNAME=$line
 		# query CloudFlare DOH: 
 
@@ -171,7 +203,12 @@ while read line; do
 
 			ip6_list=$(echo $dns_aaaaresp | jq -r -c ".Answer[] | select(.name == \"$DNAME\") | .data")
 		fi
+	elif [[ "$line" =~ ^\@[a-zA-Z0-9].*$ ]] ; then
+		# set global variables to refer to set
+		instr $line
 
+		echo "$OP nft set: $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME"
+		echo "Flags: $_FLAG_ARG"
 	else 
 		# no domain nor IP mached, skip line
 		echo "WARN: Skipping line no. $line_no - no valid IP nor domain name: $line"
