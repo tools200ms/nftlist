@@ -179,6 +179,8 @@ while read line; do
 		continue;
 	fi
 
+	ip4_list=''
+	ip6_list=''
 
 	if [[ "$line" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(\/[0-9]{1,2})?$ ]] ; then
 		# ipv4 matched
@@ -192,16 +194,27 @@ while read line; do
 		# query CloudFlare DOH: 
 
 		if [ $SET_TYPE == 'ipv4_addr' -o $SET_TYPE == 'ether_addr' ] ; then
-			dns_aresp=$(curl --silent -H "accept: application/dns-json" \
+			dns_resp=$(curl --silent -H "accept: application/dns-json" \
 							"https://1.1.1.1/dns-query?name=$DNAME&type=A")
-			ip4_list=$(echo $dns_aresp | jq -r -c ".Answer[] | select(.name == \"$DNAME\") | .data")
+
+			if [ $(echo $dns_resp | jq -c ".Answer != null") == 'true' ] ; then
+				ip4_list=$(echo $dns_resp | jq -r -c ".Answer[] | select(.type == 1) | .data")
+			else
+				# No answer section for
+				echo "Can't resolve '$DNAME' A"
+			fi
 		fi
 
 		if [ $SET_TYPE == 'ipv6_addr' -o $SET_TYPE == 'ether_addr' ] ; then
-			dns_aaaaresp=$(curl --silent -H "accept: application/dns-json" \
+			dns_resp=$(curl --silent -H "accept: application/dns-json" \
 							"https://1.1.1.1/dns-query?name=$DNAME&type=AAAA")
 
-			ip6_list=$(echo $dns_aaaaresp | jq -r -c ".Answer[] | select(.name == \"$DNAME\") | .data")
+			if [ $(echo $dns_resp | jq -c ".Answer != null") == 'true' ] ; then
+				ip6_list=$(echo $dns_resp | jq -r -c ".Answer[] | select(.type == 28) | .data")
+			else
+				# No answer section for
+				echo "Can't resolve '$DNAME' AAAA"
+			fi
 		fi
 	elif [[ "$line" =~ ^\@[a-zA-Z0-9].*$ ]] ; then
 		# set global variables to refer to set

@@ -1,12 +1,17 @@
 
 
-@set ip test_tbl testset1d
+@set inet test_tbl testset1d
 
 200ms.net
-103.22.200.1
+
+netflix.com
+googlevideo.com
+myhomescreen.tv
+google.pl
 
 
-@set ip test_tbl testset2s
+
+@set inet test_tbl testset2s
 
 192.168.0.1
 192.168.1.0/24
