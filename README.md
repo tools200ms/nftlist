@@ -34,13 +34,13 @@ Define a set such as:
 
 ```
 table inet filter {
-       set crepo4http {
+       set repo4http {
                type ipv4_addr ;
                flags timeout ;
        }
 }
 ```
-This can be added to `/etc/nftables.nft` or preferably dropped as a separate configuration in `/etc/nftables.d/` directory.
+This definition can be added to `/etc/nftables.nft`, or preferably dropped as a separate configuration file to `/etc/nftables.d/` directory.
 
 To reload configuration do:
 ```bash
@@ -57,38 +57,34 @@ table inet filter {
         chain forward {
                 type filter hook forward priority filter; policy drop;
                 ...
-                iifname $NIC_BR0 oifname $NIC_EXT ip daddr @crepo4http tcp dport {http, https} counter accept
+                iifname $NIC_BR0 oifname $NIC_EXT ip daddr @repo4http tcp dport {http, https} counter accept
         }
         ...
 }
 ```
-Above snippet defines the rule that do `accept` only `http` traffic to IPs defined in `crepo4http` set.
+Above snippet defines the rule that do `accept` only `http` and `https` traffic to IP destinations defined in `crepo4http` set.
 
 ### 2. Define domain list
 
-Create in `/etc/nftdef/` file with a name matching the following pattern:
-```
-<address family>-<table name>-<set name>.list
-```
-
-Regarding to an example it might be:
-```
-/etc/nftsets/inet-filter-crepo4http.list
-```
+Create in `/etc/nftdef/` file `<name>.list`, e.g. `access.list`.
 
 The content of the file might be:
 ```
-# Devuan repository to let on container updates
+# Devuan repository access
+@set inet filter repo4http
 
 deb.devuan.org
 deb.debian.org
 
+@set inet filter ext4http
  # IP address will be passed straight to NFT
-146.75.118.132
+146.75.118.132 # special IP
 ```
 
-Optional comments are indicated by preceding them with \#. You can mix domain names and IP address.
-IPv4 and IPv6 are also acknowledged by NFT-helper.
+`\#` indicates that a text afterwards is a comment.
+
+You can mix domain names and IP address. Both, IPv4 and IPv6 are acknowledged by NFT-helper.
+
 However, ensure that `type` specification of IP set matches provided address family, e.g. if `type ipv4_addr` is defined, adding IPv6 address to set will fail.
 Depending on what type is defined, NFT-helper resolves:
 
@@ -100,10 +96,10 @@ Depending on what type is defined, NFT-helper resolves:
 
 To feed NFT set call `nft-helper.sh`:
 ```
-nft-helper.sh init inet filter crepo4http /etc/nftsets/inet-filter-crepo4http.list
+nft-helper.sh init /etc/nftsets/access.list
 ```
-This will query domain names defined in `/etc/nftsets/inet-filter-crepo4http.list` and feed `crepo4http` set with resolved IP's.
-If `inet-filter-crepo4http.list` holds IP adresses, it will just copy them to IP set.
+This will query domain names encountered in `/etc/nftsets/access.list` and feed `repo4http` set with resolved IP's.
+If `access.list` holds IP addresses, it will just validate and copy them to an IP set.
 
 **NOTE 4:**
 You can provide network addresses e.g. `103.22.200.0/22`. In this case NFT set must have specified `interval` flag. e.g.:
@@ -118,23 +114,19 @@ Finally add 'NFT Helper' to OpenRC's default runlevel:
 ```
 rc-update add /etc/init.d/nft-helper default
 ```
-ensure that `/etc/nftdef/` holds ip/domain list saved in files that match following pattern:
-```
-<address family>-<table name>-<set name>.list
-```
+
 and bellow command:
 ```
 service nft-helper start
 ```
-should start nft-helper.
+will configure NFT sets according to configuration found in `/etc/nftdef/*.list` files.
 
 ### 4. NFT updates
 
 There is a probability that some IP addresses might not be associated with a certain domain anymore.
 While other new IP's might be added.
 
-`nft-helper.sh` comes with `update` option and cron script for periodic IP updates. It is recommended to
-lookup for a domain name once per day to give a chance for a smooth firewall update.
+`nft-helper.sh` comes with `update` option and cron script for periodic IP checkouts. It is recommended to lookup for a domain name once per day to give a chance for a smooth firewall update.
 In this case flag `timeout` shall be defined in NFT set.
 If so, any IP's added to this set will be bound with 72 hour timeout. Periodic update will reset timeouts
 back to 72 hours. But if one of the IP's is not resolved any more it will simply get expired. If there
