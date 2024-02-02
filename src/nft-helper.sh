@@ -9,24 +9,33 @@
         set -xe || set -e
 
 
-if [ -f /etc/conf.d/nft-helper ] ; then
-        . /etc/conf.d/nft-helper
-fi
-
-if [[ ! "$IP_TIMEOUT" =~ ^([0-9]{1,3}[s|m|h|d]){1,4}$ ]] ; then
-	IP_TIMEOUT="3d"
-	echo "Setting default IP timeout to: $IP_TIMEOUT"
-fi
-
-TIMEOUT_FLAG="timeout $IP_TIMEOUT"
-
-
 function print_help () {
 	cat > $1 << EOF
 Command syntax: 
-$0 <init|update|discard> <IP/domain list>
-	init - add IP elements to NFT set. If domain name is provided it will be resolved to an IP address
-	update - update IP elements in NFT set
+$0 <load|panic> <IP/domain list path> [address family] [table] [set]
+	load - adds or updates IP elements in NFT set. If set is empty,
+	       elements will be added. If set holds addresses ('load' has
+	       been called before), '$0' does removal of thous that does not exist on the list (that is
+	       a file indicated by a next argument).
+
+		   If domain name is provided by the list, it will be resolved to an IP address.
+		   If domain has been resolved before, hence 'load' is called again,
+		   firewall will be updated to reflect current A/AAAA record resolution from DNS.
+		   (if any of IP's is not resolved anymore, it will be removed from firewall).
+
+	<IP/domain list path> - Path to file containing address list, it should have '.list' extension.
+
+	Optional:
+		address family, table and nft set can be provided as command argument, if so
+		list defined in a file does not need to be preceded by '@set' instruction.
+
+		It is correct to provide only address family and a table, of just a table name.
+		In this case '@set' instruction included in a file should have 'up match'
+		character ('-') as first or first two arguments:
+		@set - - set1
+		... IP/arp/domain list
+		@set - - set2
+		... IP/arp/domain list that apply to the same table. but other set
 
 $0 --help | -h
 	Print this help.
@@ -53,17 +62,18 @@ if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
 fi
 
 # check no. of arguments
-if [ $# -ne 2 ]; then
+if [ $# -lt 2 ] && [ $# -gt 4 ] ; then
 	print_msg_and_exit 1 "Incorrect syntax"
 fi
 
-# Set names must be 16 characters or less
+# global variables:
 _ADDR_FAMILY=
 _TABLE_NAME=
 _SET_NAME=
 
-ENTRY_LIST=$2
+_NFT_SET_IPs=
 
+# BEGIN: validating function
 function set_afamily() {
 	if ! [[ "$1" =~ ^(ip|ip6|inet|arp|bridge|netdev)$ ]]; then
 		print_msg_and_exit 3 "Provide address family name"
@@ -81,17 +91,35 @@ function set_tblname () {
 }
 
 function set_setname () {
+	# Set names must be 16 characters or less
 	if ! [[ "$1" =~ ^([a-zA-Z0-9]){1,16}$ ]]; then
 		print_msg_and_exit 3 "NFT set's name should be an alpha-numeric label of upto 16 char. long"
 	fi
 
 	_SET_NAME=$1
 }
+# END
 
-
+# BEGIN: validate first argument that shall be a file name
+ENTRY_LIST=$2
 if ! [ -f "$ENTRY_LIST" ]; then
 	print_msg_and_exit 3 "Provide domain/IP source list"
 fi
+# END
+
+# BEGIN load configuration:
+if [ -f /etc/conf.d/nft-helper ] ; then
+        . /etc/conf.d/nft-helper
+fi
+
+if [[ ! "$IP_TIMEOUT" =~ ^([0-9]{1,3}[s|m|h|d]){1,4}$ ]] ; then
+	IP_TIMEOUT="3d"
+	echo "Setting default IP timeout to: $IP_TIMEOUT"
+fi
+# END
+
+TIMEOUT_FLAG="timeout $IP_TIMEOUT"
+
 
 function instr () {
 
@@ -104,28 +132,58 @@ function instr () {
 			load_set
 		;;
 
+		\@include)
+			# Before calling this script recursively check if:
+			# 1. included file is not the same as the one that is under
+			#    process
+			# 2. if there is no 'parent' process that has
+			# as an argument the same file.
+			#
+			# This is to avoid circular calls.
+
+			if [ -z "$2" ] ; then
+				echo "Syntax error, missing parameter for '@include'"
+				exit 2
+			elif ! [ -f "$2" ] ; then
+				echo "File not found: '$2'"
+				exit 2
+			elif [ $(realpath $2) = $(realpath $ENTRY_LIST) ] ; then
+				echo "File can not include itself"
+				exit 2
+			fi
+
+			#ps
+			ps -o ppid=$$
+		;;
+
+		\@onpanic)
+			echo 'keep' 'discard'
+		;;
+
 		*)
 			echo "Unknown instruction '$1'"
 	esac
 }
 
+# BEGIN: function performing NFT operations:
 function op_init () {
 	$NFT add element $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME { "$1" "$_FLAG_ARG" }
 }
 
-function op_update () {
+function op_load () {
 	echo $_NFT_SET_IPs | grep -q "\"$1\"" && \
 		$NFT delete element $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME { "$1" } || \
 		echo "New IP addr. (as it has not been found in a current '$_SET_NAME' set): $1"
 
 	$NFT add element $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME { "$1" "$_FLAG_ARG" }
 }
+# END
 
 # preparations before loading data
 OP=$1
 function load_set () {
 	case $OP in
-	init|update)
+	load|init|update)
 
 		SET_TYPE=$(nft --json list set $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME | jq -r '.nftables[1].set.type')
 		SET_FLAGS=$(nft --json list set $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME | jq -r '.nftables[1].set.flags')

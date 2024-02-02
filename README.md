@@ -154,5 +154,13 @@ service nft-helper start
 # and verify what has been changed:
 nft list ruleset
 ```
+# Useful links
 
-Enjoy!
+HowTo:
+* Nftables Wiki [here](https://wiki.nftables.org/)
+* Gentoo Nftables guide (nice and compact) [here](https://wiki.gentoo.org/wiki/Nftables)
+* and Arch Linux NFT (alike Gentoo's wiki, but nothing about howto compile kernel :) [wiki](https://wiki.archlinux.org/title/Nftables)
+
+Theory:
+* Netfilter framework [at Wikipedia](https://en.wikipedia.org/wiki/Netfilter)
+
