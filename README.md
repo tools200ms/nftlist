@@ -164,3 +164,10 @@ HowTo:
 Theory:
 * Netfilter framework [at Wikipedia](https://en.wikipedia.org/wiki/Netfilter)
 
+
+# TODO
+
+Change `nft-helper.sh` parameter names:
+
+* from 'load' to 'sync'
+
