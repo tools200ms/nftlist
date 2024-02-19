@@ -23,15 +23,15 @@ Thus, I extended 'NFT Helper' to handle:
 
 To provide flexible configuration, following instructions has been introduced:
 
-*\@set family|- \<table name\>|- \<set name\>|-*
+**\@set family|- \<table name\>|- \<set name\>|-**
 
 this defines NFT set to be filled with certain IP/IP range elements
 
-*\@include \<file name\>*
+**\@include \<file name\>**
 this allows on inclusion of a certain file
 
 
-*\@onpanic keep|discard*
+**\@onpanic keep|discard**
 this allows to define if a certain list should be keeped, or removed in the case of 'panic' signal
 
 
@@ -42,7 +42,7 @@ this allows to define if a certain list should be keeped, or removed in the case
 NFT configuration shall be defined in `/etc/nftables.nft` and in `/etc/nftables.d/`. NFT helper does not create, modify or delete any
 hooks, chains, or other 'structural' firewall settings. It only operates within NFT sets, 'NFT helper' can only:
 * add, or
-* remove *elements* of an indicated NFT sets.
+* remove **elements** of an indicated NFT sets.
 
 In short, in NFT, IP addresses are grouped within `NFT sets`, every IP or network address is defined as `set element`.
 Sets are a part of a firewall table where appropriate accept/reject/drop polices can be defined.
