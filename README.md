@@ -1,16 +1,64 @@
 # NFT Helper - filter traffic by domain names
 NFT Helper scripts has been developed to add domain name filtering capabilities to NFT firewall.
 Desired domain names are read from configuration file, names are resolved to IP's that is used to
-update NFT - thus to limit traffic to a specified domain set.
+update NFT - thus to limit or open traffic to a specified domain set.
 
-It's not a perfect filtering as usually different domain names share common IP's. Encrypted connections prevent firewall from inspecting package to validate destination domain. Therefore some extra names can 'sneak' under the radar. However this issue is negligible comparing to benefits coming from restricted firewall ruleset.
+It's not a perfect filtering as usually multiple domain names share common IP's. Encrypted connections (by protecting privacy) prevent firewall from inspecting package to check destination domain. Therefore some extra names can 'sneak' under the radar. However this issue is negligible comparing to benefits coming from restricted firewall rule set.
 
-NFT Helper is useful with containerization/virtualisation technics where running VMs can be limited to exact network resources they need.
+# HowTo
 
-NFT Helper is a set of scripts developed for Alpine Linux:
+Originally, NFT helper has been developed to handle domain name based filtering.
+The domain list stored in a separated from configuration file of files is a convenience and an enforcement
+of a structure (firewall) and data separation policy.
+It come quickly that a small tool that would handle also other network resources in a broader aspect
+would be a nice tool supplementing NFT tools.
+
+Thus, I extended 'NFT Helper' to handle:
+
+* Domain names (example.com) and:
+* IPv4 addresses (10.0.23.3)
+* IPV4 networks (103.31.4.0/22)
+* IPv6 addresses (fe80::e65f:1ff:fe1b:5bee)
+* IPv6 networks (2001:db8:1234::/48)
+
+To provide flexible configuration, following instructions has been introduced:
+
+* \@set family|- <table name>|- <set name>|-
+
+this defines NFT set to be filled with certain IP/IP range elements
+* \@include <file name>
+
+this allows on inclusion of a certain file
+
+* \@onpanic keep|discard
+
+this allows to define if a certain list should be keeped, or removed in the case of 'panic' signal
+
+
+# NFT sets
+
+NFT configuration shall be defined in `/etc/nftables.nft` and in `/etc/nftables.d/`. NFT helper does not create, modify or delete any
+hooks, chains, or other 'structural' firewall settings. It only operates within NFT sets, 'NFT helper' can only:
+* add, or
+* remove *elements* of an indicated NFT sets.
+
+In short, in NFT, IP addresses are grouped within `NFT sets`, every IP or network address is defined as `set element`.
+Sets are a part of a firewall table where appropriate accept/reject/drop polices can be defined.
+
+To familiarize with NFT see [NFT Quick reference in 10 minutes](https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes).
+
+Also, nice description of the topic with an examples can be found in [Useful links](#useful-links).
+
+
+To summarise, you focus on constructing of a proper NFT configuration, while NFT Helper is a tool that is to fill defined NFT sets with desired IP resources.
+
+
+# Package content
+
+NFT Helper is a set of scripts originally developed to protect a small server run at Alpine Linux:
 `/etc/init.d/nft-helper` - OpenRC script to be launched in 'default' runlevel
 `/etc/periodic/daily/nft-helper.daily.sh` - script to be launched daily (preferably) to refresh IP list
-`/usr/local/bin/nft-helper.sh` - finally the main script that does domain name resolution and sets NFT
+`/usr/local/bin/nft-helper.sh` - finally, the main script that does domain name resolution and sets NFT
 
 Configuration for NFT-helper that is a set of files holding the list of domain names is designed to be placed in
 ```
@@ -26,8 +74,9 @@ Domain names are resolved using CloudFlare 1.1.1.1 DOH (DNS over HTTP(s)) server
 **NOTE 2:**
 `A` or `AAAA` records can change over time, therefore firewall shall be updated periodically. This is the role for the script `/etc/periodic/daily/nft-helper.daily.sh`.
 
+
 ## Configuration
-IP addresses are grouped within `NFT sets`, sets are defined as a part of a firewall table. To learn NFT, NFT Quick reference in 10 minutes [here](https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes).
+
 
 ### 1. Define NFT set to be feed by NFT-helper
 Define a set such as:
@@ -47,7 +96,7 @@ To reload configuration do:
 service nftables reload
 ```
 
-**NOTE 3:**
+**NOTE 4:**
 Set specification `typeof` is not supported yet, please use `type` for any sets to be feed by 'nft-helper'.
 
 NFT sets should be bound with an appropriate chain rules that implement black/white listing policy, for instance:
@@ -64,7 +113,7 @@ table inet filter {
 ```
 Above snippet defines the rule that do `accept` only `http` and `https` traffic to IP destinations defined in `crepo4http` set.
 
-### 2. Define domain list
+### 2. Define resource list
 
 Create in `/etc/nftdef/` file `<name>.list`, e.g. `access.list`.
 
@@ -154,6 +203,11 @@ service nft-helper start
 # and verify what has been changed:
 nft list ruleset
 ```
+
+# Summary
+
+NFT Helper is useful with containerization/virtualisation technics where running VMs can be limited to exact network resources they need. I developed it to have a lite, robust and straight-forward solution for various  NFT firewall cases.
+
 # Useful links
 
 HowTo:
@@ -163,7 +217,6 @@ HowTo:
 
 Theory:
 * Netfilter framework [at Wikipedia](https://en.wikipedia.org/wiki/Netfilter)
-
 
 # TODO
 
