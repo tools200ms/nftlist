@@ -30,9 +30,11 @@ this defines NFT set to be filled with certain IP/IP range elements
 
 this allows on inclusion of a certain file
 
+
 * \@onpanic keep|discard
 
 this allows to define if a certain list should be keeped, or removed in the case of 'panic' signal
+
 
 
 # NFT sets
