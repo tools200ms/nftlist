@@ -21,7 +21,7 @@ complementing piece of software for Nftables.
     * IPv6 addresses (fe80::e65f:1ff:fe1b:5bee)
     * IPv6 networks (2001:db8:1234::/48)
 
-    These data is read from configuration files and loaded to appropriate [NFT set](#nft-sets).
+    These data is read from [configuration files](#configuration) and loaded to appropriate [NFT set](#nft-sets).
 3. IPs pointed by DNS can change over time, thus `NFT Helper` runs periodic checks to keep firewall coherent with internet state.
 
 Please note that domain based filtering is not a perfect one. Usually multiple domain names share common IP's. Encrypted connections (that protect privacy) prevent firewall from inspecting network package for source/destination check. Therefore some extra names can 'sneak' under the radar. However this issue is negligible comparing to benefits coming from restricted firewall rule set.
@@ -33,7 +33,7 @@ Please note that domain based filtering is not a perfect one. Usually multiple d
 To summarise, you focus on constructing of a proper NFT configuration, while NFT Helper is a tool that is to fill defined NFT sets with desired IP resources.
 
 
-# Configuration location and file names and format
+# Configuration
 
 `NFT Helper` loads configuration files by default from:
 ```
