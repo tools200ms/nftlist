@@ -1,9 +1,10 @@
 # NFT Helper - filter traffic by domain names
-NFT Helper scripts has been developed to add domain name filtering capabilities to NFT firewall.
-Desired domain names are read from configuration file, names are resolved to IP's that is used to
-update NFT - thus to limit or open traffic to a specified domain set.
+`NFT Helper` scripts has been developed to add domain name filtering capabilities to NFT firewall.
+It is used to limit or open network traffic basing on IP addresses resolved from
+a given domain name list.
 
-It's not a perfect filtering as usually multiple domain names share common IP's. Encrypted connections (by protecting privacy) prevent firewall from inspecting package to check destination domain. Therefore some extra names can 'sneak' under the radar. However this issue is negligible comparing to benefits coming from restricted firewall rule set.
+
+It's not a perfect filtering as usually multiple domain names share common IP's. Encrypted connections (by protecting privacy) prevent firewall from inspecting network package to check destination domain. Therefore some extra names can 'sneak' under the radar. However this issue is negligible comparing to benefits coming from restricted firewall rule set.
 
 # HowTo
 
