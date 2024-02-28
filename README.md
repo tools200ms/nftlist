@@ -1,4 +1,10 @@
 # NFT Helper - filter traffic by domain names + split configuration
+**NOTE 1:**
+Usage of this tool requires knowledge regarding Linux NFT firewall framework.
+To familiarize with NFT see [NFT Quick reference in 10 minutes](https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes).
+Also, descriptions of the topic with an examples can be found in [Useful links](#useful-links) section at the end of this page.
+
+
 While managing a computer network security it is practical to limit or open network traffic basing on IP addresses resolved from
 a given domain name list. Furthermore, it is practical and recommended to keep data (domain names, IPs) separated from structure (firewall configuration).
 
@@ -14,20 +20,32 @@ complementing piece of software for Nftables.
     * IPV4 networks (103.31.4.0/22)
     * IPv6 addresses (fe80::e65f:1ff:fe1b:5bee)
     * IPv6 networks (2001:db8:1234::/48)
-    These data is read from configuration files and loaded to appropriate NFT set.
-3. IPs pointed by DNS can change over time, thus `NFT Helper` runs periodic checks to keep firewall coherent with internet state
 
-Moreover please note that domain based filtering is not a perfect one. Usually multiple domain names share common IP's. Encrypted connections (that protect privacy) prevent firewall from inspecting network package for source/destination check. Therefore some extra names can 'sneak' under the radar. However this issue is negligible comparing to benefits coming from restricted firewall rule set.
+    These data is read from configuration files and loaded to appropriate [NFT set](#nft-sets).
+3. IPs pointed by DNS can change over time, thus `NFT Helper` runs periodic checks to keep firewall coherent with internet state.
 
-# HowTo
+Please note that domain based filtering is not a perfect one. Usually multiple domain names share common IP's. Encrypted connections (that protect privacy) prevent firewall from inspecting network package for source/destination check. Therefore some extra names can 'sneak' under the radar. However this issue is negligible comparing to benefits coming from restricted firewall rule set.
 
-Originally, NFT helper has been developed to handle domain name based filtering.
-The domain list stored in a separated from configuration file of files is a convenience and an enforcement
-of a structure (firewall) and data separation policy.
-It come quickly that a small tool that would handle also other network resources in a broader aspect
-would be a nice tool supplementing NFT tools.
+# NFT sets
 
-Thus, I extended `NFT Helper` to handle:
+
+
+To summarise, you focus on constructing of a proper NFT configuration, while NFT Helper is a tool that is to fill defined NFT sets with desired IP resources.
+
+
+# Configuration location and file names and format
+
+`NFT Helper` loads configuration files by default from:
+```
+/etc/nftdef/
+```
+Configuration file mus end with:
+```
+.list
+```
+extension.
+
+The format is one domain/IPv per line
 
 
 To provide flexible configuration, following instructions has been introduced:
@@ -56,12 +74,6 @@ hooks, chains, or other 'structural' firewall settings. It only operates within 
 In short, in NFT, IP addresses are grouped within `NFT sets`, every IP or network address is defined as `set element`.
 Sets are a part of a firewall table where appropriate accept/reject/drop polices can be defined.
 
-To familiarize with NFT see [NFT Quick reference in 10 minutes](https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes).
-
-Also, nice description of the topic with an examples can be found in [Useful links](#useful-links).
-
-
-To summarise, you focus on constructing of a proper NFT configuration, while NFT Helper is a tool that is to fill defined NFT sets with desired IP resources.
 
 
 # Package content
