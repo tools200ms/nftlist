@@ -1,10 +1,23 @@
-# NFT Helper - filter traffic by domain names
-`NFT Helper` scripts has been developed to add domain name filtering capabilities to NFT firewall.
-It is used to limit or open network traffic basing on IP addresses resolved from
-a given domain name list.
+# NFT Helper - filter traffic by domain names + split configuration
+While managing a computer network security it is practical to limit or open network traffic basing on IP addresses resolved from
+a given domain name list. Furthermore, it is practical and recommended to keep data (domain names, IPs) separated from structure (firewall configuration).
 
 
-It's not a perfect filtering as usually multiple domain names share common IP's. Encrypted connections (by protecting privacy) prevent firewall from inspecting network package to check destination domain. Therefore some extra names can 'sneak' under the radar. However this issue is negligible comparing to benefits coming from restricted firewall rule set.
+As domain-based filtering is not in a scope of Nftables tools, I developed this set of scripts to full fill this feature.
+As a 'side effect', I could keep my settings outside of `.nft` config files, so after all `NFT Helper` is
+complementing piece of software for Nftables.
+
+1. Domain names are resolved by `NFT Helper` using CloudFlare `1.1.1.1` DOH (DNS over HTTP(s)) server. This is actually the most secure way to query domain names.
+2. `NFT Helper` handles following network resources:
+    * Domain names (example.com) and:
+    * IPv4 addresses (10.0.23.3)
+    * IPV4 networks (103.31.4.0/22)
+    * IPv6 addresses (fe80::e65f:1ff:fe1b:5bee)
+    * IPv6 networks (2001:db8:1234::/48)
+    These data is read from configuration files and loaded to appropriate NFT set.
+3. IPs pointed by DNS can change over time, thus `NFT Helper` runs periodic checks to keep firewall coherent with internet state
+
+Moreover please note that domain based filtering is not a perfect one. Usually multiple domain names share common IP's. Encrypted connections (that protect privacy) prevent firewall from inspecting network package for source/destination check. Therefore some extra names can 'sneak' under the radar. However this issue is negligible comparing to benefits coming from restricted firewall rule set.
 
 # HowTo
 
@@ -14,13 +27,8 @@ of a structure (firewall) and data separation policy.
 It come quickly that a small tool that would handle also other network resources in a broader aspect
 would be a nice tool supplementing NFT tools.
 
-Thus, I extended 'NFT Helper' to handle:
+Thus, I extended `NFT Helper` to handle:
 
-* Domain names (example.com) and:
-* IPv4 addresses (10.0.23.3)
-* IPV4 networks (103.31.4.0/22)
-* IPv6 addresses (fe80::e65f:1ff:fe1b:5bee)
-* IPv6 networks (2001:db8:1234::/48)
 
 To provide flexible configuration, following instructions has been introduced:
 
@@ -71,7 +79,7 @@ directory. The files should end with `*.list` extension to be loaded.
 
 
 **NOTE 1:**
-Domain names are resolved using CloudFlare 1.1.1.1 DOH (DNS over HTTP(s)) server. This is actually the most secure way to query domain names.
+
 
 
 **NOTE 2:**
