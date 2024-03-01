@@ -2,12 +2,19 @@
 # Based on: 
 # https://openwrt.org/docs/guide-user/firewall/filtering_traffic_at_ip_addresses_by_dns
 
+VERSION="1.2.9-alpha" # --PKG_VERSION_MARK-- DO NOT REMOVE THIS COMMENT
+
 [ -n "$PRETEND" ] && [[ $(echo "$PRETEND" | tr '[:upper:]' '[:lower:]') =~ ^y|yes|1|on$ ]] && \
         NFT="echo nft(pretend) " || NFT="nft"
 
 [ -n "$DEBUG" ] && [[ $(echo "$DEBUG" | tr '[:upper:]' '[:lower:]') =~ ^y|yes|1|on$ ]] && \
         set -xe || set -e
 
+
+function print_version () {
+	echo 'NFT Helper, version: '$VERSION
+	echo "By Mateusz Piwek"
+}
 
 function print_help () {
 	cat > $1 << EOF
@@ -37,6 +44,9 @@ $0 <load|panic> <IP/domain list path> [address family] [table] [set]
 		@set - - set2
 		... IP/arp/domain list that apply to the same table. but other set
 
+$0 --version | -v
+	Print version.
+
 $0 --help | -h
 	Print this help.
 EOF
@@ -56,6 +66,10 @@ function print_msg_and_exit () {
 	exit $1
 }
 
+if [ "$1" == "-v" ] || [ "$1" == "--version" ]; then
+	print_version
+	exit 0
+fi
 
 if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then 
 	print_msg_and_exit 0
