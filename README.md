@@ -29,24 +29,24 @@ Please note that domain based filtering is not a perfect one. Usually multiple d
 # NFT sets
 
 NFT comes with [NFT sets](https://wiki.nftables.org/wiki-nftables/index.php/Sets) that allow on grouping elements of the same type together.
-For instance, set type *ipv4_addr* is to group IPv4 addresses (192.168.1.1, 192.168.1.2), *ether_addr* to group mac addresses (32:9b:92:cd:ce:e8, 02:42:d4:ff:a9:bf) while *ifname* for grouping network interfaces (enp7s0, br0).
+For instance, set of type *ipv4_addr* is for grouping IPv4 addresses (192.168.1.1, 192.168.1.2), *ether_addr* for mac addresses (32:9b:92:cd:ce:e8, 02:42:d4:ff:a9:bf) while *ifname* to group network interfaces (enp7s0, br0).
 
 When it comes for NFT Helper, it works on a following Set types:
 * *ipv4_addr* for IPv4 and
-* *ipv6_addr* IPv6 elements.
+* *ipv6_addr* for IPv6 elements.
 
 Set is defined within NFT 'table', its scope covers chains and rules defined under table where it has been defined.
-Sets can be anonymous, or named, in the case of NFT Helper only named sets are in consideration as NFT Helper can access Set only by its name.
+Sets can be anonymous, or be named, in the case of `NFT Helper` only named sets are in consideration as `NFT Helper` accesses Sets by a name.
 
-In order to have a set in action the firewall rule must refer to it pointing desired package filtering policy such as drop or accept.
-This rule will apply to all set elements.
+In order to have a set in action, the firewall rule must refer to it defining desired package filtering policy such as drop or accept.
+The rule will apply to all set elements.
 
 From another end `NFT helper` fills in Set with a desired addresses.
 NFT helper does not create, modify or delete any hooks, chains, or other 'structural' firewall settings. It only operates within NFT sets, 'NFT helper' can only:
 * add, or
 * remove **elements** of an indicated NFT sets.
 
-It's administrator's job to define firewall configuration. NFT Helper is a tool responsible for filling and keeping up to date NFT sets.
+It's administrator's job to define firewall configuration. NFT Helper is a tool responsible for filling and keeping sets up to date.
 
 ## type and typeof Sets
 Set type can be specified as `type`, or `typeof`.
@@ -56,8 +56,8 @@ class ipaddress.IPv4Address(address)
 class ipaddress.IPv6Address(address)
 ```
 
-`typeof` is a higher level expression, it defines not what kind of elements it holds but what is destiny for those elements.
-For instance typeof can define that elements should be used ad source address, or destination address:
+`typeof` is a higher level expression, it defines what is a destiny for elements.
+For instance `typeof` can define that IP element should be used as a source address, or destination address:
 ```
 `typeof ip saddr`
 `typeof ip daddr`
