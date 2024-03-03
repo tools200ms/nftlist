@@ -1,5 +1,5 @@
 # NFT Helper - filter traffic by domain names + split configuration
-**NOTE 1:**
+**NOTE:**
 Usage of this tool requires knowledge regarding Linux NFT firewall framework.
 To familiarize see [NFT Quick reference in 10 minutes](https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes).
 Additionally, NFT guides with an examples can be found in [Useful links](#useful-links) section at the bottom of this page.
@@ -62,12 +62,13 @@ For instance `typeof` can define that IP element should be used as a source addr
 `typeof ip saddr`
 `typeof ip daddr`
 ```
-**NOTE: **
+**NOTE:**
 NFT Helper does not support `typeof`, it supports only `type` specification limited to *ipv4_addr* and *ipv6_addr*.
 
 # Firewall configuration
 
-NFT configuration shall be defined in `/etc/nftables.nft` and in `/etc/nftables.d/`.
+NFT configuration should be defined in `/etc/nftables.nft` and in `/etc/nftables.d/`.
+
 
 # Configuration
 
