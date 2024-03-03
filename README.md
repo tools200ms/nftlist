@@ -1,8 +1,8 @@
 # NFT Helper - filter traffic by domain names + split configuration
 **NOTE 1:**
 Usage of this tool requires knowledge regarding Linux NFT firewall framework.
-To familiarize with NFT see [NFT Quick reference in 10 minutes](https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes).
-Also, descriptions of the topic with an examples can be found in [Useful links](#useful-links) section at the end of this page.
+To familiarize see [NFT Quick reference in 10 minutes](https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes).
+Additionally, NFT guides with an examples can be found in [Useful links](#useful-links) section at the bottom of this page.
 
 
 While managing a computer network security it is practical to limit or open network traffic basing on IP addresses resolved from
@@ -22,16 +22,52 @@ complementing piece of software for Nftables.
     * IPv6 networks (2001:db8:1234::/48)
 
     These data is read from [configuration files](#configuration) and loaded to appropriate [NFT set](#nft-sets).
-3. IPs pointed by DNS can change over time, thus `NFT Helper` runs periodic checks to keep firewall coherent with internet state.
+3. IPs pointed by DNS can change over time, thus `NFT Helper` runs periodic checks to keep firewall coherent with an actual DNS state.
 
 Please note that domain based filtering is not a perfect one. Usually multiple domain names share common IP's. Encrypted connections (that protect privacy) prevent firewall from inspecting network package for source/destination check. Therefore some extra names can 'sneak' under the radar. However this issue is negligible comparing to benefits coming from restricted firewall rule set.
 
 # NFT sets
 
+NFT comes with [NFT sets](https://wiki.nftables.org/wiki-nftables/index.php/Sets) that allow on grouping elements of the same type together.
+For instance, set type *ipv4_addr* is to group IPv4 addresses (192.168.1.1, 192.168.1.2), *ether_addr* to group mac addresses (32:9b:92:cd:ce:e8, 02:42:d4:ff:a9:bf) while *ifname* for grouping network interfaces (enp7s0, br0).
 
+When it comes for NFT Helper, it works on a following Set types:
+* *ipv4_addr* for IPv4 and
+* *ipv6_addr* IPv6 elements.
 
-To summarise, you focus on constructing of a proper NFT configuration, while NFT Helper is a tool that is to fill defined NFT sets with desired IP resources.
+Set is defined within NFT 'table', its scope covers chains and rules defined under table where it has been defined.
+Sets can be anonymous, or named, in the case of NFT Helper only named sets are in consideration as NFT Helper can access Set only by its name.
 
+In order to have a set in action the firewall rule must refer to it pointing desired package filtering policy such as drop or accept.
+This rule will apply to all set elements.
+
+From another end `NFT helper` fills in Set with a desired addresses.
+NFT helper does not create, modify or delete any hooks, chains, or other 'structural' firewall settings. It only operates within NFT sets, 'NFT helper' can only:
+* add, or
+* remove **elements** of an indicated NFT sets.
+
+It's administrator's job to define firewall configuration. NFT Helper is a tool responsible for filling and keeping up to date NFT sets.
+
+## type and typeof Sets
+Set type can be specified as `type`, or `typeof`.
+'type' can be an analogy to classes from object oriented languages, for instance *ipv4_addr* and *ipv6_addr* can be represented in Python as:
+```
+class ipaddress.IPv4Address(address)
+class ipaddress.IPv6Address(address)
+```
+
+`typeof` is a higher level expression, it defines not what kind of elements it holds but what is destiny for those elements.
+For instance typeof can define that elements should be used ad source address, or destination address:
+```
+`typeof ip saddr`
+`typeof ip daddr`
+```
+**NOTE: **
+NFT Helper does not support `typeof`, it supports only `type` specification limited to *ipv4_addr* and *ipv6_addr*.
+
+# Firewall configuration
+
+NFT configuration shall be defined in `/etc/nftables.nft` and in `/etc/nftables.d/`.
 
 # Configuration
 
@@ -62,17 +98,6 @@ this allows on inclusion of a certain file
 this allows to define if a certain list should be keeped, or removed in the case of 'panic' signal
 
 
-
-
-# NFT sets
-
-NFT configuration shall be defined in `/etc/nftables.nft` and in `/etc/nftables.d/`. NFT helper does not create, modify or delete any
-hooks, chains, or other 'structural' firewall settings. It only operates within NFT sets, 'NFT helper' can only:
-* add, or
-* remove **elements** of an indicated NFT sets.
-
-In short, in NFT, IP addresses are grouped within `NFT sets`, every IP or network address is defined as `set element`.
-Sets are a part of a firewall table where appropriate accept/reject/drop polices can be defined.
 
 
 
