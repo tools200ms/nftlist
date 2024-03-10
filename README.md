@@ -44,7 +44,7 @@ table inet my_table {
     }
 }
 ```
-To do not mix structure with data `NFT Helper` loads configuration from separate file:
+As it was told, to do not mix structure with data `NFT Helper` loads configuration from separate file:
 ```
 # /etc/nftdef/allowed_hosts.list
 # host that are allowed for connecting this box
@@ -54,7 +54,7 @@ To do not mix structure with data `NFT Helper` loads configuration from separate
 192.168.0.102 # temperature sensor
 
 ```
-It's one IP/domain/mac per line file with possibility to comment (`#`) and keywords instructing `NFT Helper` (`@set`, `@include`, `@onpanic`).
+It's one IP/domain/mac per line file with possibility to comment (`#`) and keywords (`@set`, `@include`, `@onpanic`) instructing `NFT Helper`.
 
 # Project scope
 
