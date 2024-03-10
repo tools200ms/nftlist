@@ -1,13 +1,62 @@
 # NFT Helper - filter traffic by domain names + split configuration
 **NOTE:**
 Usage of this tool requires knowledge regarding Linux NFT firewall framework.
-To familiarize see [NFT Quick reference in 10 minutes](https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes).
+For more information check out [NFT Quick reference in 10 minutes](https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes).
 Additionally, NFT guides with an examples can be found in [Useful links](#useful-links) section at the bottom of this page.
 
 
-While managing a computer network security it is practical to limit or open network traffic basing on IP addresses resolved from
-a given domain name list. Furthermore, it is practical and recommended to keep data (domain names, IPs) separated from structure (firewall configuration).
+When managing my network I come across the need to restrict a traffic to a given domain name list.
+Sounds easy task, just read the list, resolve names and load IPs to a firewall.
+It started with a simple Bash script, once when it has been developed I could keep domain list in a separated
+file. That was very practical as 'structure' (firewall configuration) has been separated from data (domain names).
 
+The firewall is NFT, its `C++` alike configuration ([look bellow 🠋🠋](#a-small-picture)) that I really like now could be extended by `domain per line` data
+files holding e.g. blacklisted domain names. My script was reading the list, resolving names and passing this information into proper
+place in NFT configuration.
+
+Once I had a means to read domain names, let's add a possibility to load also IP addresses, and why not mac addresses?
+So the program was capable of loading `network resources`, to indicate where within NFT configuration given
+resource set schold be added I defined keyword `@set`, later there come idea for additional `@include` (for including other files)
+and `@onpanic` for defining policy for 'emergency' state.
+
+NFT by design provides sophisticated functions such as [timeouts](https://wiki.nftables.org/wiki-nftables/index.php/Element_timeouts), [intervals](https://wiki.nftables.org/wiki-nftables/index.php/Intervals), different data types. Additionally IPs resolved from domain names change, domain name lists (especially blacklists) do change also, etc. One of the next 'musts' for well-made software was capability to reload configuration keeping in mind all these sophisticated functions of NFT.
+
+NFT comes with Python bindings, it become clear that to continue Bash must be dropped in favor of Python.
+
+## A small picture
+This is extremely simple example, Nftables comes with `nft` command that can be used to 'build' firewall,
+but more practical is `.nft` fileinheriting portion of `C++` alike syntax, bellow example that opens `eth0`
+for accepting port 80 traffic only:
+```
+# /etc/nftables.nft
+# /very simple configuration
+
+table inet my_table {
+    set allowed_hosts {
+        type ipv4_addr;
+    }
+
+    chain input {
+        type filter hook input priority 0; policy drop;
+
+        iifname "lo" accept comment "Accept any localhost traffic"
+        iifname "eth0" tcp dport 80 ip saddr @allowed_hosts accept
+    }
+}
+```
+To do not mix structure with data `NFT Helper` loads configuration from separate file:
+```
+# /etc/nftdef/allowed_hosts.list
+# host that are allowed for connecting this box
+
+@allowed_hosts # load bellow addresses into 'allowed_hosts' set
+192.168.0.100 # temperature sensor #1
+192.168.0.102 # temperature sensor
+
+```
+It's one IP/domain/mac per line file with possibility to comment (`#`) and keywords instructing `NFT Helper` (`@set`, `@include`, `@onpanic`).
+
+# Project scope
 
 As domain-based filtering is not in a scope of Nftables tools, I developed this set of scripts to full fill this feature.
 As a 'side effect', I could keep my settings outside of `.nft` config files, so after all `NFT Helper` is
@@ -266,6 +315,10 @@ HowTo:
 
 Theory:
 * Netfilter framework [at Wikipedia](https://en.wikipedia.org/wiki/Netfilter)
+
+# References
+
+https://serverfault.com/questions/1145318/nftables-referencing-a-set-from-another-table
 
 # TODO
 
