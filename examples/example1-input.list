@@ -1,0 +1,7 @@
+# /etc/nftdef/allowed_hosts.list
+# host that are allowed for connecting this box
+
+@allowed_hosts # load bellow addresses into 'allowed_hosts' set
+peer2 # local host name
+192.168.0.100 # imaginary server 1
+192.168.0.102 # imaginary server 2

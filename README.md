@@ -7,29 +7,32 @@ Additionally, NFT guides with an examples can be found in [Useful links](#useful
 
 When managing my network I come across the need to restrict a traffic to a given domain name list.
 Sounds easy task, just read the list, resolve names and load IPs to a firewall.
-It started with a simple Bash script, once when it has been developed I could keep domain list in a separated
-file. That was very practical as 'structure' (firewall configuration) has been separated from data (domain names).
+It started with a simple Bash script, once when it has been developed, I got other feature. I could keep domain list in a separated file. 'structure' (firewall configuration) now has been separated from data (domain names).
 
-The firewall is NFT, its `C++` alike configuration ([look bellow 🠋🠋](#a-small-picture)) that I really like now could be extended by `domain per line` data
-files holding e.g. blacklisted domain names. My script was reading the list, resolving names and passing this information into proper
-place in NFT configuration.
+The firewall is NFT, its `C structure` alike configuration ([look bellow 🠋🠋](#a-small-picture)) that I really like now could be extended by text `one domain per line` format files holding e.g. blacklisted domain names.
+My script was reading the list, resolving names and passing this information into proper
+place in NFT.
 
-Once I had a means to read domain names, let's add a possibility to load also IP addresses, and why not mac addresses?
-So the program was capable of loading `network resources`, to indicate where within NFT configuration given
-resource set schold be added I defined keyword `@set`, later there come idea for additional `@include` (for including other files)
-and `@onpanic` for defining policy for 'emergency' state.
+Once there has been means to read domain names, next step seem to be a possibility to load IP addresses, and why not mac addresses?
+So the program become capable of loading `network resources`, to indicate where within NFT configuration given
+resource set should be added I defined keyword `@set`. A bit later come an idea for an `@include` keyword (for including other files) and `@onpanic` for defining policy in the case of network 'emergency'.
 
-NFT by design provides sophisticated functions such as [timeouts](https://wiki.nftables.org/wiki-nftables/index.php/Element_timeouts), [intervals](https://wiki.nftables.org/wiki-nftables/index.php/Intervals), different data types. Additionally IPs resolved from domain names change, domain name lists (especially blacklists) do change also, etc. One of the next 'musts' for well-made software was capability to reload configuration keeping in mind all these sophisticated functions of NFT.
+NFT by design provides sophisticated functions such as [timeouts](https://wiki.nftables.org/wiki-nftables/index.php/Element_timeouts), [intervals](https://wiki.nftables.org/wiki-nftables/index.php/Intervals), different data types. Additionally IPs resolved from DNS might change over time. Domain name lists (especially blacklists) do change also, etc. One of the 'musts' for a well-made software is a capability to reload configuration keeping in mind all these sophisticated functions of NFT. Thus, the program requirements has grow comparing original 'read list -> resolve names -> load firewall' concept.
 
-NFT comes with Python bindings, it become clear that to continue Bash must be dropped in favor of Python.
+NFT comes with Python bindings, it become clear that to continue Bash must be dropped in favor of Python. But in fact, I keep two versions, Bash `NFT Helper Lite` and Pythons `NFT Helper`.
 
 ## A small picture
-This is extremely simple example, Nftables comes with `nft` command that can be used to 'build' firewall,
-but more practical is `.nft` fileinheriting portion of `C++` alike syntax, bellow example that opens `eth0`
-for accepting port 80 traffic only:
+Nftables firewall is configured via `nft` user-space utility, that replaces an old `iptables` but also `ip6tables`, `arptables` and `ebtables` commands. Also it comes also with a new `C structure` alike configuration
+file format. Bellow is a simple example:
 ```
+#!/sbin/nft -f
 # /etc/nftables.nft
-# /very simple configuration
+
+# very simple configuration
+
+define NIC = "eth0"
+
+flush ruleset
 
 table inet my_table {
     set allowed_hosts {
@@ -40,10 +43,15 @@ table inet my_table {
         type filter hook input priority 0; policy drop;
 
         iifname "lo" accept comment "Accept any localhost traffic"
-        iifname "eth0" tcp dport 80 ip saddr @allowed_hosts accept
+        iifname $NIC tcp dport 80 ip saddr @allowed_hosts accept
     }
 }
 ```
+This configuration could be loaded also with:
+```
+
+```
+
 As it was told, to do not mix structure with data `NFT Helper` loads configuration from separate file:
 ```
 # /etc/nftdef/allowed_hosts.list
