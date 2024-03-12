@@ -22,35 +22,51 @@ NFT by design provides sophisticated functions such as [timeouts](https://wiki.n
 NFT comes with Python bindings, it become clear that to continue Bash must be dropped in favor of Python. But in fact, I keep two versions, Bash `NFT Helper Lite` and Pythons `NFT Helper`.
 
 ## A small picture
-Nftables firewall is configured via `nft` user-space utility, that replaces an old `iptables` but also `ip6tables`, `arptables` and `ebtables` commands. Also it comes also with a new `C structure` alike configuration
-file format. Bellow is a simple example:
+Nftables firewall is configured via `nft` user-space utility, that replaces an old `iptables` but also `ip6tables`, `arptables` and `ebtables` commands. It comes with a new `C structure` alike configuration file format. See simple example bellow:
 ```
 #!/sbin/nft -f
-# /etc/nftables.nft
 
-# very simple configuration
-
-define NIC = "eth0"
-
+# very simple workstation configuration
 flush ruleset
 
 table inet my_table {
+
     set allowed_hosts {
         type ipv4_addr;
+        flags timeout, interval;
+    }
+
+    set allowed_ports {
+        type inet_service;
+        flags interval;
+        elements = { ssh, http, https, http-alt, 3000-5000 }
     }
 
     chain input {
         type filter hook input priority 0; policy drop;
 
-        iifname "lo" accept comment "Accept any localhost traffic"
-        iifname $NIC tcp dport 80 ip saddr @allowed_hosts accept
+        iifname lo accept \
+            comment "Accept any localhost traffic"
+        ct state invalid drop \
+            comment "Drop invalid connections"
+        ct state { established, related } accept \
+            comment "Accept traffic originated from us"
+
+        tcp dport @allowed_ports \
+        ip  saddr @allowed_hosts counter ct state new accept \
+            comment "Accept connections from @allowed_hosts to @allowed_ports"
     }
 }
 ```
-This configuration could be loaded also with:
-```
+This is a very basic firewall configuration for opening host for outgoing connections and incoming
+connections for `allowed_hosts` to `allowed_ports`.
 
+As you can see allowed ports has been defined in `set allowed_ports` but `set set allowed_hosts` is
+empty. It can be updated with command:
 ```
+nft add element inet my_table allowed_hosts { 172.22.0.2 }
+```
+or `NFT Helper` can do this for you.
 
 As it was told, to do not mix structure with data `NFT Helper` loads configuration from separate file:
 ```
@@ -327,6 +343,21 @@ Theory:
 # References
 
 https://serverfault.com/questions/1145318/nftables-referencing-a-set-from-another-table
+
+
+# Very quick reference
+
+Bellow frequently used NFT commands:
+```bash
+# Show current NFT configuration:
+nft list ruleset
+
+# List all sets
+nft list sets
+
+# Add set element example
+nft add element inet my_table allowed_hosts { 172.22.0.2 }
+```
 
 # TODO
 

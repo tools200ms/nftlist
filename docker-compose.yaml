@@ -17,7 +17,7 @@ services:
       - ./test/test_tbl-test_out-testset.list:/etc/nftdef/test_tbl-test_out-testset.list
 
       - ./lists:/etc/netlists/
-      - ./examples:/etc/netlists/
+      - ./examples:/usr/share/nftlist/
 
     networks:
       - nfttest-net
@@ -37,7 +37,7 @@ services:
       - ./test/test_tbl-test_out-testset.list:/etc/nftdef/test_tbl-test_out-testset.list
 
       - ./lists:/etc/netlists/
-      - ./examples:/etc/netlists/
+      - ./examples:/usr/share/nftlist/
 
     networks:
       - nfttest-net
