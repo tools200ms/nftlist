@@ -12,13 +12,15 @@ table inet my_table {
 
     set allowed_ports {
         type inet_service;
-        flags interval, constant;
+        flags interval;
         elements = { ssh, http, https, http-alt, 3000-5000 }
     }
 
-    chain input {
+    chain my_input {
         type filter hook input priority 0; policy drop;
 
+        # Input Pert I: set firewall to let for an outgoing connections,
+        # while dropping incoming traffic
         iifname lo accept \
             comment "Accept any localhost traffic"
         ct state invalid drop \
@@ -26,6 +28,8 @@ table inet my_table {
         ct state { established, related } accept \
             comment "Accept traffic originated from us"
 
+        # Input Part II: do an exception for incoming traffic for
+        # `@allowed_hosts` to `allowed_ports`
         tcp dport @allowed_ports \
         ip  saddr @allowed_hosts counter ct state new accept \
             comment "Accept connections for chosen hosts to selected ports"

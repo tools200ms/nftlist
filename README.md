@@ -9,7 +9,7 @@ When managing my network I come across the need to restrict a traffic to a given
 Sounds easy task, just read the list, resolve names and load IPs to a firewall.
 It started with a simple Bash script, once when it has been developed, I got other feature. I could keep domain list in a separated file. 'structure' (firewall configuration) now has been separated from data (domain names).
 
-The firewall is NFT, its `C structure` alike configuration ([look bellow 🠋🠋](#a-small-picture)) that I really like now could be extended by text `one domain per line` format files holding e.g. blacklisted domain names.
+The firewall is NFT, its `C structure` alike configuration ([look bellow 🠋🠋](#quick-introduction)) that I really like now could be extended by text `one domain per line` format files holding e.g. blacklisted domain names.
 My script was reading the list, resolving names and passing this information into proper
 place in NFT.
 
@@ -21,7 +21,7 @@ NFT by design provides sophisticated functions such as [timeouts](https://wiki.n
 
 NFT comes with Python bindings, it become clear that to continue Bash must be dropped in favor of Python. But in fact, I keep two versions, Bash `NFT Helper Lite` and Pythons `NFT Helper`.
 
-## A small picture
+## Quick introduction
 Nftables firewall is configured via `nft` user-space utility, that replaces an old `iptables` but also `ip6tables`, `arptables` and `ebtables` commands. It comes with a new `C structure` alike configuration file format. See simple example bellow:
 ```
 #!/sbin/nft -f
@@ -42,9 +42,11 @@ table inet my_table {
         elements = { ssh, http, https, http-alt, 3000-5000 }
     }
 
-    chain input {
+    chain my_input {
         type filter hook input priority 0; policy drop;
 
+        # Input Pert I: set firewall to let for an outgoing connections,
+        # while dropping incoming traffic
         iifname lo accept \
             comment "Accept any localhost traffic"
         ct state invalid drop \
@@ -52,39 +54,44 @@ table inet my_table {
         ct state { established, related } accept \
             comment "Accept traffic originated from us"
 
+        # Input Part II: do an exception for incoming traffic for
+        # `@allowed_hosts` to `allowed_ports`
         tcp dport @allowed_ports \
         ip  saddr @allowed_hosts counter ct state new accept \
-            comment "Accept connections from @allowed_hosts to @allowed_ports"
+            comment "Accept connections for chosen hosts to selected ports"
     }
 }
 ```
-This is a very basic firewall configuration for opening host for outgoing connections and incoming
-connections for `allowed_hosts` to `allowed_ports`.
+This is a very basic firewall configuration. It opens host (`Input Pert I`) for outgoing connections while dropping traffic originated from outside.
+But as an exception (`Input Pert II`) chosen `allowed_hosts` hosts can be allowed for connecting host at `allowed_ports`.
 
-As you can see allowed ports has been defined in `set allowed_ports` but `set set allowed_hosts` is
-empty. It can be updated with command:
-```
+Once when NFT with this configuration is loaded (note `flush ruleset` that purges previous settings) `allowed_hosts` is empty.
+Therefore no other host is allowed to let in, access can be open with:
+```bash
 nft add element inet my_table allowed_hosts { 172.22.0.2 }
 ```
-or `NFT Helper` can do this for you.
-
-As it was told, to do not mix structure with data `NFT Helper` loads configuration from separate file:
+or `NFT Helper` can do this for you. Define file such as:
 ```
 # /etc/nftdef/allowed_hosts.list
 # host that are allowed for connecting this box
 
 @allowed_hosts # load bellow addresses into 'allowed_hosts' set
-192.168.0.100 # temperature sensor #1
-192.168.0.102 # temperature sensor
-
+172.22.0.2 # Peer 2
 ```
-It's one IP/domain/mac per line file with possibility to comment (`#`) and keywords (`@set`, `@include`, `@onpanic`) instructing `NFT Helper`.
 
-# Project scope
+and load:
+```bash
+nft-helper.sh sync /etc/nftdef/allowed_hosts.list
+```
+`NFT Helper` comes with OpenRC init script to load settings a boot time, and cron script for periodic reloads. More in ...
 
-As domain-based filtering is not in a scope of Nftables tools, I developed this set of scripts to full fill this feature.
-As a 'side effect', I could keep my settings outside of `.nft` config files, so after all `NFT Helper` is
-complementing piece of software for Nftables.
+# Project's scope
+
+The aim of the project is to complement Nftables user-space tools by:
+1. providing domain-based filtering
+2. letting on keeping data in a separated from NFT configuration files
+
+The key features of `NFT Helper` are:
 
 1. Domain names are resolved by `NFT Helper` using CloudFlare `1.1.1.1` DOH (DNS over HTTP(s)) server. This is actually the most secure way to query domain names.
 2. `NFT Helper` handles following network resources:
@@ -93,23 +100,99 @@ complementing piece of software for Nftables.
     * IPV4 networks (103.31.4.0/22)
     * IPv6 addresses (fe80::e65f:1ff:fe1b:5bee)
     * IPv6 networks (2001:db8:1234::/48)
+    * Mac addresses (02:42:ac:16:00:02)
 
     These data is read from [configuration files](#configuration) and loaded to appropriate [NFT set](#nft-sets).
 3. IPs pointed by DNS can change over time, thus `NFT Helper` runs periodic checks to keep firewall coherent with an actual DNS state.
 
 Please note that domain based filtering is not a perfect one. Usually multiple domain names share common IP's. Encrypted connections (that protect privacy) prevent firewall from inspecting network package for source/destination check. Therefore some extra names can 'sneak' under the radar. However this issue is negligible comparing to benefits coming from restricted firewall rule set.
 
-# NFT sets
+# HowTo Use
+`NFT Helper` is interacting with a firewall that is a vital part of a network security.
+Therefore this guide is not only touching aspects of `NFT Helper` but primally `Nftables` to present necessary details for user to be aware of what is being done.
+
+
+
+## Part II: Nft Helper
+## Configuration files and directories
+
+Refer to your Linux distribution guide to learn how to handle NFT configuration under your system.
+Usually (Debian, Alphine) main configuration file is `/etc/nftables.nft` while directory `/etc/nftables.d/` is used to drop in additional settings.
+
+`Nft Helper` uses `/etc/nftlists/` as a storage place for network resources lists.
+
+It holds `available` and `enabled` directories:
+```bash
+/etc/nftlists/
+├── available
+│   ├── inbound_filter.list
+│   └── outbound_filter.list
+└── enabled
+    └── outbound_filter.list -> ../available/outbound_filter.list
+```
+`NFT Helper` will load files ended with `.list` extension that are located in `/etc/nftlists/enabled/`.
+
+## File formats
+
+## Part I: Nftables
+### NFT sets
 
 NFT comes with [NFT sets](https://wiki.nftables.org/wiki-nftables/index.php/Sets) that allow on grouping elements of the same type together.
-For instance, set of type *ipv4_addr* is for grouping IPv4 addresses (192.168.1.1, 192.168.1.2), *ether_addr* for mac addresses (32:9b:92:cd:ce:e8, 02:42:d4:ff:a9:bf) while *ifname* to group network interfaces (enp7s0, br0).
+Example definition of NFT set looks as follows:
+```
+table inet user_defined_table_name {
+       set usedr_defined_set_name {
+               type ipv4_addr;
+               flags timeout, interval;
+               auto-merge;
 
-When it comes for NFT Helper, it works on a following Set types:
-* *ipv4_addr* for IPv4 and
-* *ipv6_addr* for IPv6 elements.
 
-Set is defined within NFT 'table', its scope covers chains and rules defined under table where it has been defined.
-Sets can be anonymous, or be named, in the case of `NFT Helper` only named sets are in consideration as `NFT Helper` accesses Sets by a name.
+               elements = { 10.0.0.0/8 }
+       }
+}
+```
+
+NFT defines various types of elements, for instance *ipv4_addr* is for keeping IPv4 addresses, *ether_addr* for mac addresses while *ifname* is to group network interfaces (e.g. enp7s0, br0).
+
+`NFT Helper` operates on a Sets of the following types:
+* *ipv4_addr* for IPv4,
+* *ipv6_addr* for IPv6 elements
+* *ether_addr* for mac addresses.
+
+Nftables also provides `typeof` keyword that as documentation states:
+
+> allows you to use a high level expression, then let nftables resolve the base type for you
+
+`NFT Helper` can operate **only** on sets declared with `type`. Trial of loading data into `typeof`, or `type` but of not supported type will fail.
+
+Type of a set elements complemented by flag that specifies more precisely behaviour and format of an elements:
+* *timeout* - specifies timeout when a set element is set for expiration, note that various elements within one set can have a different timeouts
+* *constant* - set content can not be changed once when it has been bound to a rule
+* *interval* - set elements can be intervals, that is IP addresses with network prefixes or address ranges in format: *<first addr>-<last addr>*, e.g.
+`192.168.100-192.168.199`
+
+`NFT Helper` validates these flags and acts as follows:
+* *timeout* - `NFT Helper` acts as follow:
+    1. loads resources to a such set setting up a given or default timeout. Default timeout is `25 h 42 sec.`
+    2. does not do `sync` operation, instead it re-loads NFT with a new list resulting in extending expiration time of
+       already existing elements, adding new elements, and letting for experiation in Firewall that elements that are
+       missing on e new list.
+* *constant* - `NFT Helper` acts normally if set is not bound with rule.
+* *interval* - `NFT Helper` extends accepted format by network prefixes and address ranges.
+
+
+`auto-merge` option of `NFT Set` combines a set elements into intervals, this let auto-packing addresses into groups. For instance
+adding `10.0.0.0/8` with `11.1.0.0/8` equals to `10.0.0.0/7`. `NFT Helper` handles this option as expected, thus apart of add and
+remove, `auto-merge` will additionally result in `merge`, `split` operations.
+
+
+### NFT Structure
+Sets are defined in NFT `table`. Table contains chains that contains rules which define an actions (what to do with a package) if a certain condition/s is meet.
+
+
+For instance it can lead to accept, drop or reject or even more complex actions.
+
+Sets can be anonymous, or be named, in the case of `NFT Helper` only named sets take effect as `NFT Helper` accesses Sets by a name.
 
 In order to have a set in action, the firewall rule must refer to it defining desired package filtering policy such as drop or accept.
 The rule will apply to all set elements.
@@ -121,26 +204,12 @@ NFT helper does not create, modify or delete any hooks, chains, or other 'struct
 
 It's administrator's job to define firewall configuration. NFT Helper is a tool responsible for filling and keeping sets up to date.
 
-## type and typeof Sets
-Set type can be specified as `type`, or `typeof`.
-'type' can be an analogy to classes from object oriented languages, for instance *ipv4_addr* and *ipv6_addr* can be represented in Python as:
-```
-class ipaddress.IPv4Address(address)
-class ipaddress.IPv6Address(address)
-```
 
-`typeof` is a higher level expression, it defines what is a destiny for elements.
-For instance `typeof` can define that IP element should be used as a source address, or destination address:
-```
-`typeof ip saddr`
-`typeof ip daddr`
-```
-**NOTE:**
-NFT Helper does not support `typeof`, it supports only `type` specification limited to *ipv4_addr* and *ipv6_addr*.
+
 
 # Firewall configuration
 
-NFT configuration should be defined in `/etc/nftables.nft` and in `/etc/nftables.d/`.
+
 
 
 # Configuration
@@ -203,14 +272,7 @@ directory. The files should end with `*.list` extension to be loaded.
 ### 1. Define NFT set to be feed by NFT-helper
 Define a set such as:
 
-```
-table inet filter {
-       set repo4http {
-               type ipv4_addr ;
-               flags timeout ;
-       }
-}
-```
+
 This definition can be added to `/etc/nftables.nft`, or preferably dropped as a separate configuration file to `/etc/nftables.d/` directory.
 
 To reload configuration do:
@@ -218,8 +280,7 @@ To reload configuration do:
 service nftables reload
 ```
 
-**NOTE 4:**
-Set specification `typeof` is not supported yet, please use `type` for any sets to be feed by 'nft-helper'.
+
 
 NFT sets should be bound with an appropriate chain rules that implement black/white listing policy, for instance:
 ```

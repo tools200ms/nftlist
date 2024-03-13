@@ -16,7 +16,7 @@ table inet my_table {
 
     set allowed_ports {
         type inet_service;
-        flags interval;
+        flags interval, constant;
         elements = { ssh, http, https, http-alt, 3000-5000 }
     }
 
@@ -32,12 +32,12 @@ table inet my_table {
 
         iifname $LAN_NIC tcp dport @allowed_ports \
                          ip  saddr @allowed_hosts counter ct state new accept \
-            comment "Accept connections from @allowed_hosts to @allowed_ports"
+            comment "Accept connections for chosen hosts to selected ports"
     }
 
     chain my_forward {
 		type filter hook forward priority filter; policy drop;
-		# Drop everything forwarded to us. We do not forward. That is routers job.
+		# Drop everything forwarded to us. We do not forward. That is routers job
 	}
 
 	chain my_output {
