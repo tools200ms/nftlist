@@ -1,9 +1,34 @@
-# NFT Helper - filter traffic by domain names + split configuration
+
+# NFT List
+Supplements Nftables by domain name based filtering and configuration files.
+
 **NOTE:**
 Usage of this tool requires knowledge regarding Linux NFT firewall framework.
 For more information check out [NFT Quick reference in 10 minutes](https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes).
 Additionally, NFT guides with an examples can be found in [Useful links](#useful-links) section at the bottom of this page.
 
+## Table of contents
+
+- [Overview](#overview)
+- [Quick introduction](#quick-introduction)
+- [Project's scope](#projects-scope)
+- [HowTo Use](#howto-use)
+  - [Part I: Interaction](#part-i-interaction)
+    - [NFT sets](#nft-sets)
+    - [NFT Structure](#nft-structure)
+  - [Part II: Installation and Configuration](#part-ii-installation-and-interaction)
+    - [Installation](#installation)
+    - [Configuration files and directories](#configuration-files-and-directories)
+      - [File format](#file-format)
+    - [Directives](#directives)
+    - [Command line](#command-line)
+    - [Periodic runs](#periodic-runs)
+    - [White List example](#white-list-example)
+  - [Troubleshooting](#troubleshooting)
+- [Summary](#summary)
+- [Useful links](#useful-links)
+
+## Overview
 
 When managing my network I come across the need to restrict a traffic to a given domain name list.
 Sounds easy task, just read the list, resolve names and load IPs to a firewall.
@@ -85,7 +110,7 @@ nft-helper.sh sync /etc/nftdef/allowed_hosts.list
 ```
 `NFT Helper` comes with OpenRC init script to load settings a boot time, and cron script for periodic reloads. More in ...
 
-# Project's scope
+## Project's scope
 
 The aim of the project is to complement Nftables user-space tools by:
 1. providing domain-based filtering
@@ -107,15 +132,15 @@ The key features of `NFT Helper` are:
 
 Please note that domain based filtering is not a perfect one. Usually multiple domain names share common IP's. Encrypted connections (that protect privacy) prevent firewall from inspecting network package for source/destination check. Therefore some extra names can 'sneak' under the radar. However this issue is negligible comparing to benefits coming from restricted firewall rule set.
 
-# HowTo Use
+## HowTo Use
 `NFT Helper` is interacting with a firewall that is a vital part of a network security.
 Therefore this guide is not only touching aspects of `NFT Helper` but primally `Nftables` to present necessary details for user to be aware of what is being done.
 
 
-## Part I: Interaction
+### Part I: Interaction
 This part explains an interaction of `NFT Helper` with Nftables user-space tools.
 
-### NFT sets
+#### NFT sets
 
 NFT comes with [NFT sets](https://wiki.nftables.org/wiki-nftables/index.php/Sets) that allow on grouping elements of the same type together.
 Example definition of NFT set looks as follows:
@@ -172,7 +197,7 @@ hold mixed IPv4 and IPv6 elements. If set has been defined of a `type ipv4_addr`
 If set is of `type ipv6_addr` `AAAA` DNS records are queried.
 
 
-### NFT Structure
+#### NFT Structure
 
 If you inspect an example from [Quick introduction](#quick-introduction) there are three noticeable aspects:
 - Sets belong to table
@@ -186,10 +211,31 @@ Sets are a `meeting` point. `NFT helper` fills in Set with a desired IP/mac addr
 It's administrator's job to define a firewall configuration. NFT Helper is a tool designed for filling and keeping set elements up to date.
 
 
-## Part II: Configuration
+### Part II: Installation and Configuration
 This part is about how to configure the tool.
 
-### Configuration files and directories
+#### Installation
+`NFT list` is in an early development phase, there is no packages developed yet, you can install it by unpacking
+release file into `/` directory:
+```bash
+tar -xzvf nfthelper-1.2.9-alpha.tar.gz -C /
+```
+this will simply extract `nftlist.sh` to `/usr/local/bin/` and `nftlist` to `etc/init.d/`.
+
+At this point, only OpenRC is supported (no systemd).
+
+Add nftlist to OpenRC's default runlevel:
+```bash
+rc-update add nftlist default
+```
+To launch `NFT List` simply start the service:
+```bash
+service nftlist start
+```
+this reads configuration from `/etc/nftlists/available/` and loads NFT sets.
+Just after installation as configuration is empty nothing will happen.
+
+#### Configuration files and directories
 
 Refer to your Linux distribution guide to learn how to handle NFT configuration under your system.
 Usually (Debian, Alphine) main configuration file is `/etc/nftables.nft` while directory `/etc/nftables.d/` is used to drop in additional settings.
@@ -212,7 +258,7 @@ It holds `available` and `enabled` directories:
 ```
 `NFT Helper` will load files ended with `.list` extension that are located in `/etc/nftlists/enabled/`.
 
-## File formats
+##### File format
 
 The file format expected by `NFT Helper` is a text file holding domain/address list, such as:
 ```
@@ -227,6 +273,8 @@ specialoffernow.info
 ```
 
 Comments are marked by `\#` symbol.
+
+### Directives
 
 Resource list should or can be proceeded by an directives:
 
@@ -247,28 +295,6 @@ Panic signal can be issued with:
 > nftlist panic
 
 command.
-
-
-## Installation
-`NFT list` is in an early development phase, there is no packages developed yet, you can install it by unpacking
-release file into `/` directory:
-```bash
-tar -xzvf nfthelper-1.2.9-alpha.tar.gz -C /
-```
-this will simply extract `nftlist.sh` to `/usr/local/bin/` and `nftlist` to `etc/init.d/`.
-
-At this point, only OpenRC is supported (no systemd).
-
-Add nftlist to OpenRC's default runlevel:
-```bash
-rc-update add nftlist default
-```
-To launch `NFT List` simply start the service:
-```bash
-service nftlist start
-```
-this reads configuration from `/etc/nftlists/available/` and loads NFT sets.
-Just after installation as configuration is empty nothing will happen.
 
 ## Command line
 
@@ -359,7 +385,7 @@ iifname br0 oifname eth0 ip daddr @allow_outgoing tcp dport { 80, 443 } accept
 ```
 
 
-## Testing
+## Troubleshooting
 In the case of troubles you run:
 ```
 nftlist --verbose
@@ -417,8 +443,7 @@ NFT Helper is useful with containerization/virtualisation technics where running
 
 
 **Practice**
-[serverfault: nftables: referencing a set from another table]
-(https://serverfault.com/questions/1145318/nftables-referencing-a-set-from-another-table)
+[serverfault: nftables: referencing a set from another table](https://serverfault.com/questions/1145318/nftables-referencing-a-set-from-another-table)
 
 **Bad addresses databases**
 Phishing Database: [github: mitchellkrogza/Phishing.Database](https://github.com/mitchellkrogza/Phishing.Database/)
