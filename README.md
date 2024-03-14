@@ -314,8 +314,8 @@ Id:    action:
         to 'blacklist' set of 'filter' inet table
 
 proceed with update?
-      yes    / no / details / help or (y   /n/d/h) - if yes,     update all
-  or  yes Ids/ no / details / help or (y Id/n/d/h) - if yes Ids, update chosen set
+      yes    / no / details / help or (y    /n/d/h) - if yes,     update all
+  or  yes Ids/ no / details / help or (y Ids/n/d/h) - if yes Ids, update chosen set
  :
 ```
 Typing `yes`, or `y` will proceed with update, update can be limited to a chosen set by passing Id
