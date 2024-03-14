@@ -27,7 +27,10 @@ function do_release() {
 		exit 0
 	fi
 
-	tar --transform "s/^src/$RELEASE_NAME/" -czf $RELEASE_PATH src
+	#tar --transform "s/^src/$RELEASE_NAME/" -czf $RELEASE_PATH src
+	tar --transform "s/^src\/nft-helper.sh/usr\/local\/bin\/nftlist.sh/" \
+		--transform "s/^src\/nft-helper/etc\/init.d\/nftlist/" \
+		-czf $RELEASE_PATH src/nft-helper.sh src/nft-helper
 	
 	echo "File prepared: $RELEASE_PATH"
 }

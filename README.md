@@ -112,29 +112,9 @@ Please note that domain based filtering is not a perfect one. Usually multiple d
 Therefore this guide is not only touching aspects of `NFT Helper` but primally `Nftables` to present necessary details for user to be aware of what is being done.
 
 
+## Part I: Interaction
+This part explains an interaction of `NFT Helper` with Nftables user-space tools.
 
-## Part II: Nft Helper
-## Configuration files and directories
-
-Refer to your Linux distribution guide to learn how to handle NFT configuration under your system.
-Usually (Debian, Alphine) main configuration file is `/etc/nftables.nft` while directory `/etc/nftables.d/` is used to drop in additional settings.
-
-`Nft Helper` uses `/etc/nftlists/` as a storage place for network resources lists.
-
-It holds `available` and `enabled` directories:
-```bash
-/etc/nftlists/
-├── available
-│   ├── inbound_filter.list
-│   └── outbound_filter.list
-└── enabled
-    └── outbound_filter.list -> ../available/outbound_filter.list
-```
-`NFT Helper` will load files ended with `.list` extension that are located in `/etc/nftlists/enabled/`.
-
-## File formats
-
-## Part I: Nftables
 ### NFT sets
 
 NFT comes with [NFT sets](https://wiki.nftables.org/wiki-nftables/index.php/Sets) that allow on grouping elements of the same type together.
@@ -146,11 +126,12 @@ table inet user_defined_table_name {
                flags timeout, interval;
                auto-merge;
 
-
                elements = { 10.0.0.0/8 }
        }
 }
 ```
+
+Sets can be anonymous, or named. Above example defines named (`usedr_defined_set_name`) set. To have `NFT Helper` to feed sets with a data it must be obviously named.
 
 NFT defines various types of elements, for instance *ipv4_addr* is for keeping IPv4 addresses, *ether_addr* for mac addresses while *ifname* is to group network interfaces (e.g. enp7s0, br0).
 
@@ -186,206 +167,237 @@ adding `10.0.0.0/8` with `11.1.0.0/8` equals to `10.0.0.0/7`. `NFT Helper` handl
 remove, `auto-merge` will additionally result in `merge`, `split` operations.
 
 
+In NFT there is no type `inet_addr` that would match both types `ipv4_addr` and `ipv6_addr`. Therefore one set can not
+hold mixed IPv4 and IPv6 elements. If set has been defined of a `type ipv4_addr` NFT-List will resolve `A` DNS records to acquire IP.
+If set is of `type ipv6_addr` `AAAA` DNS records are queried.
+
+
 ### NFT Structure
-Sets are defined in NFT `table`. Table contains chains that contains rules which define an actions (what to do with a package) if a certain condition/s is meet.
 
+If you inspect an example from [Quick introduction](#quick-introduction) there are three noticeable aspects:
+- Sets belong to table
+- where chains and finally rules are defined
+- rules refer to set to apply a certain policy for a given network resources
 
-For instance it can lead to accept, drop or reject or even more complex actions.
-
-Sets can be anonymous, or be named, in the case of `NFT Helper` only named sets take effect as `NFT Helper` accesses Sets by a name.
-
-In order to have a set in action, the firewall rule must refer to it defining desired package filtering policy such as drop or accept.
-The rule will apply to all set elements.
-
-From another end `NFT helper` fills in Set with a desired addresses.
-NFT helper does not create, modify or delete any hooks, chains, or other 'structural' firewall settings. It only operates within NFT sets, 'NFT helper' can only:
+Sets are a `meeting` point. `NFT helper` fills in Set with a desired IP/mac addresses. NFT helper does not create, modify or delete chains, rules or other 'structural' firewall settings. It only operates within sets, 'NFT helper' can only:
 * add, or
 * remove **elements** of an indicated NFT sets.
 
-It's administrator's job to define firewall configuration. NFT Helper is a tool responsible for filling and keeping sets up to date.
+It's administrator's job to define a firewall configuration. NFT Helper is a tool designed for filling and keeping set elements up to date.
 
 
+## Part II: Configuration
+This part is about how to configure the tool.
 
+### Configuration files and directories
 
-# Firewall configuration
+Refer to your Linux distribution guide to learn how to handle NFT configuration under your system.
+Usually (Debian, Alphine) main configuration file is `/etc/nftables.nft` while directory `/etc/nftables.d/` is used to drop in additional settings.
 
+`Nft Helper` uses `/etc/nftlists/` as a storage place for network resources lists.
 
+It holds `available` and `enabled` directories:
+```bash
+\# tree /etc/nftlists/
+/etc/nftlists/
+├── available
+│   ├── inbound_filter.list
+│   └── outbound_filter.list
+├── enabled
+│   └── outbound_filter.list -> ../available/outbound_filter.list
+└── included
+    └── phising_list.txt.gz
 
-
-# Configuration
-
-`NFT Helper` loads configuration files by default from:
+3 directories, 4 files
 ```
-/etc/nftdef/
-```
-Configuration file mus end with:
-```
-.list
-```
-extension.
+`NFT Helper` will load files ended with `.list` extension that are located in `/etc/nftlists/enabled/`.
 
-The format is one domain/IPv per line
+## File formats
 
+The file format expected by `NFT Helper` is a text file holding domain/address list, such as:
+```
+# /etc/nftlists/avaliable/blacklisted_domain.list
 
-To provide flexible configuration, following instructions has been introduced:
+@set inet filter blacklist
+
+bad-domain.xxx.com # don't go there
+your-bank.login.space # no comment
+# aha ...
+specialoffernow.info
+```
+
+Comments are marked by `\#` symbol.
+
+Resource list should or can be proceeded by an directives:
 
 **\@set family|- \<table name\>|- \<set name\>|-**
-
-this defines NFT set to be filled with certain IP/IP range elements
+Indicates NFT target set for filling in with addresses placed below this instruction.
 
 **\@include \<file name\>**
-this allows on inclusion of a certain file
+Include file, file that is to be included must be located inside `/etc/nftlists/included`.
+It does not need to have `.list` extension, it can be compressed, the compression algorithm
+must be indicated by a correct extension: `.gz`, `.zip` ...
 
 
 **\@onpanic keep|discard**
-this allows to define if a certain list should be keeped, or removed in the case of 'panic' signal
+
+This directive defines an action in the case of `panic` signal. If such an event happen, probably
+white lists should be discarded from sets while black addresses keeped.
+Panic signal can be issued with:
+> nftlist panic
+
+command.
 
 
-
-
-
-# Package content
-
-NFT Helper is a set of scripts originally developed to protect a small server run at Alpine Linux:
-`/etc/init.d/nft-helper` - OpenRC script to be launched in 'default' runlevel
-`/etc/periodic/daily/nft-helper.daily.sh` - script to be launched daily (preferably) to refresh IP list
-`/usr/local/bin/nft-helper.sh` - finally, the main script that does domain name resolution and sets NFT
-
-Configuration for NFT-helper that is a set of files holding the list of domain names is designed to be placed in
-```
-/etc/nftdef/
-```
-directory. The files should end with `*.list` extension to be loaded.
-
-
-**NOTE 1:**
-
-
-
-**NOTE 2:**
-`A` or `AAAA` records can change over time, therefore firewall shall be updated periodically. This is the role for the script `/etc/periodic/daily/nft-helper.daily.sh`.
-
-
-## Configuration
-
-
-### 1. Define NFT set to be feed by NFT-helper
-Define a set such as:
-
-
-This definition can be added to `/etc/nftables.nft`, or preferably dropped as a separate configuration file to `/etc/nftables.d/` directory.
-
-To reload configuration do:
+## Installation
+`NFT list` is in an early development phase, there is no packages developed yet, you can install it by unpacking
+release file into `/` directory:
 ```bash
-service nftables reload
+tar -xzvf nfthelper-1.2.9-alpha.tar.gz -C /
+```
+this will simply extract `nftlist.sh` to `/usr/local/bin/` and `nftlist` to `etc/init.d/`.
+
+At this point, only OpenRC is supported (no systemd).
+
+Add nftlist to OpenRC's default runlevel:
+```bash
+rc-update add nftlist default
+```
+To launch `NFT List` simply start the service:
+```bash
+service nftlist start
+```
+this reads configuration from `/etc/nftlists/available/` and loads NFT sets.
+Just after installation as configuration is empty nothing will happen.
+
+## Command line
+
+NFT Sets are updated by `NFT List` each time when revise is started, or reloaded:
+
+```bash
+service nftlist start
+service nftlist reload
 ```
 
+`NFT List` can also be called directly from command line:
+```bash
+# nftlist
+Following updates has been found
+Id:    action:
+ 1     add 4 IPv4 elements
+        to 'blacklist' set of 'filter' inet table
 
-
-NFT sets should be bound with an appropriate chain rules that implement black/white listing policy, for instance:
+proceed with update?
+      yes    / no / details / help or (y   /n/d/h) - if yes,     update all
+  or  yes Ids/ no / details / help or (y Id/n/d/h) - if yes Ids, update chosen set
+ :
 ```
-table inet filter {
-        ...
-        chain forward {
-                type filter hook forward priority filter; policy drop;
-                ...
-                iifname $NIC_BR0 oifname $NIC_EXT ip daddr @repo4http tcp dport {http, https} counter accept
-        }
-        ...
-}
+Typing `yes`, or `y` will proceed with update, update can be limited to a chosen set by passing Id
+indicating actions just after `yes`, e.g. `yes 1`, `yes 2 5`.
+
+The prompt can be skipped with:
+```bash
+# Update Sets without prompt
+nftlist update
+# or shorter
+nftlist u
 ```
-Above snippet defines the rule that do `accept` only `http` and `https` traffic to IP destinations defined in `crepo4http` set.
+This will proceed with updates without prompting.
 
-### 2. Define resource list
-
-Create in `/etc/nftdef/` file `<name>.list`, e.g. `access.list`.
-
-The content of the file might be:
+By default, configuration from `/etc/nftlists/available/` is loaded, but it can be overwritten:
+```bash
+nftlist update --config /etc/my_list.list
+# or
+nftlist update --config /etc/my_list_directory/
+# additionally include directory can be indicated:
+nftlist update --config /etc/my_list.list --include /etc/incl_lists/
+# or shortly:
+nftlist update -c /etc/my_list.list -i /etc/incl_lists/
 ```
-# Devuan repository access
-@set inet filter repo4http
+`nftlist` comes with `panic` option that will apply policies defined by `\@onpanic` directive.
 
+## Periodic runs
+
+`A` or `AAAA` records can change over time, therefore firewall shall be updated periodically.
+It is advised to add to daily cron `service nftlist reload` so configuration shall be keep in
+sync with DNS entries.
+
+## White List example
+
+One of the example of whitelisting is to allow outgoing connections to be only possible with a
+very limited number of servers. This can be a list of a domain names that are used for system updates.
+The configuration might look as bellow:
+```
+# file: /etc/nftlists/available/repo_devuan.list
+
+# Devuan repositories
 deb.devuan.org
 deb.debian.org
-
-@set inet filter ext4http
- # IP address will be passed straight to NFT
-146.75.118.132 # special IP
 ```
-
-`\#` indicates that a text afterwards is a comment.
-
-You can mix domain names and IP address. Both, IPv4 and IPv6 are acknowledged by NFT-helper.
-
-However, ensure that `type` specification of IP set matches provided address family, e.g. if `type ipv4_addr` is defined, adding IPv6 address to set will fail.
-Depending on what type is defined, NFT-helper resolves:
-
-* `A` DNS records for `type ipv4_addr`
-* `AAAA` DNS records for `type ipv6_addr`
-* `A` and `AAAA` DNS records for `ether_addr`
-
-### 3. Feed NFT with data
-
-To feed NFT set call `nft-helper.sh`:
 ```
-nft-helper.sh init /etc/nftsets/access.list
-```
-This will query domain names encountered in `/etc/nftsets/access.list` and feed `repo4http` set with resolved IP's.
-If `access.list` holds IP addresses, it will just validate and copy them to an IP set.
+# file: /etc/nftlists/enabled/
 
-**NOTE 4:**
-You can provide network addresses e.g. `103.22.200.0/22`. In this case NFT set must have specified `interval` flag. e.g.:
+@set inet filter allow_outgoing
+@ include repo_devuan.list
 ```
-set setname {
-        type ipv4_addr ;
-        flags timeout,interval ;
-}
+We can white list more resources:
 ```
+# file: /etc/nftlists/enabled/
 
-Finally add 'NFT Helper' to OpenRC's default runlevel:
+@set inet filter allow_outgoing
+@ include repo_devuan.list
+10.2.0.100
+example.com
 ```
-rc-update add /etc/init.d/nft-helper default
+Note that by splitting configuration to a set of files it become more manageable.
+Also note, that you can mix domain names with IP address.
+
+NFT rule bound to `allow_outgoing` set would be defined in forward chain. The default policy for that chain might be `drop`, the
+rule might be as follows:
 ```
-
-and bellow command:
+iifname br0 oifname eth0 ip daddr @allow_outgoing tcp dport { 80, 443 } accept
 ```
-service nft-helper start
-```
-will configure NFT sets according to configuration found in `/etc/nftdef/*.list` files.
-
-### 4. NFT updates
-
-There is a probability that some IP addresses might not be associated with a certain domain anymore.
-While other new IP's might be added.
-
-`nft-helper.sh` comes with `update` option and cron script for periodic IP checkouts. It is recommended to lookup for a domain name once per day to give a chance for a smooth firewall update.
-In this case flag `timeout` shall be defined in NFT set.
-If so, any IP's added to this set will be bound with 72 hour timeout. Periodic update will reset timeouts
-back to 72 hours. But if one of the IP's is not resolved any more it will simply get expired. If there
-are new IP's then NFT set will be complemented.
-
-To have updates running ensure that `/etc/periodic/daily/nft-helper.daily.sh` is launched with no-errors.
 
 
 ## Testing
-You can see what `nft-helper.sh` would do by setting `PRETEND` variable to 'yes'
+In the case of troubles you run:
 ```
-PRETEND=yes nft-helper.sh init inet filter testset /etc/nftsets/inet-filter-testset.list
+nftlist --verbose
 ```
-Changes can be verified with:
-```
-# Reset firewall
-service nftables restart
+And check for any detailed error messages. If it does not help analyze what exactly is under the hood:
+
+```bash
+# Stop firewall
+service nftlist stop
+service nftables stop
 
 # checkout defined rules
+# it should be empty
 nft list ruleset
 
-# start NFT Helper:
-service nft-helper start
+# start firewall
+service nftables stop
 
-# and verify what has been changed:
+# analyze configuration
+nft list ruleset
+
+# start nftlist
+service nftlist start
+
+# and verify if sets has been updated
 nft list ruleset
 ```
+also you can:
+```bash
+# List all sets
+nft list sets
+
+# Add set elements manually
+nft add element inet my_table allowed_hosts { 172.22.0.2 }
+```
+NFT provides [counters](https://wiki.nftables.org/wiki-nftables/index.php/Counters), it can give you some information if
+traffic is passing trough certain firewall rule or hook.
+In tha case of troubles tools such as tcpdump and WireShark come in handy.
 
 # Summary
 
@@ -393,36 +405,21 @@ NFT Helper is useful with containerization/virtualisation technics where running
 
 # Useful links
 
-HowTo:
+**HowTo:**
+
 * Nftables Wiki [here](https://wiki.nftables.org/)
 * Gentoo Nftables guide (nice and compact) [here](https://wiki.gentoo.org/wiki/Nftables)
 * and Arch Linux NFT (alike Gentoo's wiki, but nothing about howto compile kernel :) [wiki](https://wiki.archlinux.org/title/Nftables)
 
-Theory:
+**Theory:**
+
 * Netfilter framework [at Wikipedia](https://en.wikipedia.org/wiki/Netfilter)
 
-# References
 
-https://serverfault.com/questions/1145318/nftables-referencing-a-set-from-another-table
+**Practice**
+[serverfault: nftables: referencing a set from another table]
+(https://serverfault.com/questions/1145318/nftables-referencing-a-set-from-another-table)
 
-
-# Very quick reference
-
-Bellow frequently used NFT commands:
-```bash
-# Show current NFT configuration:
-nft list ruleset
-
-# List all sets
-nft list sets
-
-# Add set element example
-nft add element inet my_table allowed_hosts { 172.22.0.2 }
-```
-
-# TODO
-
-Change `nft-helper.sh` parameter names:
-
-* from 'load' to 'sync'
+**Bad addresses databases**
+Phishing Database: [github: mitchellkrogza/Phishing.Database](https://github.com/mitchellkrogza/Phishing.Database/)
 
