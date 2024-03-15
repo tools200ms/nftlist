@@ -179,7 +179,6 @@ function load_directive () {
 			set_setname $4
 
 			read_set
-
 			echo "$_FLAG_ARG"
 		;;
 
@@ -324,7 +323,19 @@ function parse_line() {
 							"https://1.1.1.1/dns-query?name=$DNAME&type=A" || true)
 
 				if [ -n "$dns_resp" ] && [ $(echo $dns_resp | jq -c ".Answer != null") == 'true' ] ; then
-					addr_list=$(echo $dns_resp | jq -r -c ".Answer[] | select(.type == 1) | .data")
+					addr_list=
+					for resp in $(echo $dns_resp | jq -r -c ".Answer[] | select(.type == 1) | .data"); do
+						if [ $resp == "0.0.0.0" ] || [ $resp == "127.0.0.1" ]; then
+							echo "DataErr: illegal response for $DNAME: $resp"
+							continue;
+						fi
+
+						addr_list="$addr_list $resp"
+					done
+
+					if [ -z "$addr_list" ]; then
+						echo "DataErr: no responce data"
+					fi
 				else
 					# No answer section for
 					echo "DataErr: Can't resolve '$DNAME' A"
@@ -337,6 +348,7 @@ function parse_line() {
 
 				if [ -n "$dns_resp" ] && [ $(echo $dns_resp | jq -c ".Answer != null") == 'true' ] ; then
 					addr_list=$(echo $dns_resp | jq -r -c ".Answer[] | select(.type == 28) | .data")
+
 				else
 					# No answer section for
 					echo "DataErr: Can't resolve '$DNAME' AAAA"
