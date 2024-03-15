@@ -14,7 +14,7 @@ services:
       - ./src/nft-helper.daily.sh:/etc/periodic/daily/nft-helper.daily.sh
 
       - ./test/nft_settings.sh:/root/nft_settings.sh
-      - ./test/test_tbl-test_out-testset.list:/etc/nftdef/test_tbl-test_out-testset.list
+      - ./test/test_tbl-test_out-testset.list:/etc/nftlists/available/test_tbl-test_out-testset.list
 
       - ./lists:/etc/netlists/
       - ./examples:/usr/share/nftlist/
@@ -34,7 +34,7 @@ services:
       - ./src/nft-helper.daily.sh:/etc/periodic/daily/nft-helper.daily.sh
 
       - ./test/nft_settings.sh:/root/nft_settings.sh
-      - ./test/test_tbl-test_out-testset.list:/etc/nftdef/test_tbl-test_out-testset.list
+      - ./test/test_tbl-test_out-testset.list:/etc/nftlists/available/test_tbl-test_out-testset.list
 
       - ./lists:/etc/netlists/
       - ./examples:/usr/share/nftlist/

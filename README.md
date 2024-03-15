@@ -278,8 +278,23 @@ Comments are marked by `\#` symbol.
 
 Resource list should or can be proceeded by an directives:
 
-**\@set family|- \<table name\>|- \<set name\>|-**
-Indicates NFT target set for filling in with addresses placed below this instruction.
+**\@set \<family\>|- \<table name\>|- \<set name\>|-**
+Indicates NFT target set for filling, addresses placed below this directive will be loaded to an indicated set.
+The directive must define table family, name, and set name. Minus sign (**-**) (`copy sign`) if is used for one or more `\@set`
+parameters instructs to apply previous settings (copy previous parameter) e.g.:
+```
+\@set ipv6 - -
+
+# set will apply to: set ipv6 filter allow_outbound
+\@set - filter allow_outbound
+
+... addresses ...
+
+# set will apply to: set ipv6 filter allow_inbound
+\@set - - allow_inbound
+
+... addresses ...
+```
 
 **\@include \<file name\>**
 Include file, file that is to be included must be located inside `/etc/nftlists/included`.
@@ -295,6 +310,10 @@ Panic signal can be issued with:
 > nftlist panic
 
 command.
+
+
+The only required directive is `\@set` that defines target set. However it can be skipped, in this case set must be
+indicated as `nftlist` argument, see command line usage.
 
 ## Command line
 
@@ -332,15 +351,26 @@ This will proceed with updates without prompting.
 
 By default, configuration from `/etc/nftlists/available/` is loaded, but it can be overwritten:
 ```bash
-nftlist update --config /etc/my_list.list
+nftlist update /etc/my_list.list
 # or
-nftlist update --config /etc/my_list_directory/
+nftlist update /etc/my_list_directory/
 # additionally include directory can be indicated:
-nftlist update --config /etc/my_list.list --include /etc/incl_lists/
+nftlist update /etc/my_list.list --include /etc/incl_lists/
 # or shortly:
-nftlist update -c /etc/my_list.list -i /etc/incl_lists/
+nftlist update /etc/my_list.list -i /etc/incl_lists/
 ```
+
+Set can be indicated as a command line argument:
+```bash
+nftlist u --set inet filter allow
+# or use short '-s' flag
+nftlist u -s inet filter allow
+```
+If it is provided as command line argument it does not need to be declared in `.list` file.
+
+
 `nftlist` comes with `panic` option that will apply policies defined by `\@onpanic` directive.
+
 
 ## Periodic runs
 
@@ -363,15 +393,16 @@ deb.debian.org
 ```
 # file: /etc/nftlists/enabled/
 
-@set inet filter allow_outgoing
-@ include repo_devuan.list
+\@set inet filter allow_outgoing
+\@include repo_devuan.list
 ```
 We can white list more resources:
 ```
 # file: /etc/nftlists/enabled/
 
-@set inet filter allow_outgoing
-@ include repo_devuan.list
+\@set inet filter allow_outgoing
+\@include repo_devuan.list
+
 10.2.0.100
 example.com
 ```

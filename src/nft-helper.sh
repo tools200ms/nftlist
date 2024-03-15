@@ -12,14 +12,14 @@ VERSION="1.2.9-alpha" # --PKG_VERSION_MARK-- DO NOT REMOVE THIS COMMENT
 
 
 function print_version () {
-	echo 'NFT Helper, version: '$VERSION
+	echo 'NFT List, version: '$VERSION
 	echo "By Mateusz Piwek"
 }
 
 function print_help () {
 	cat > $1 << EOF
 Command syntax: 
-$0 <load|panic> <IP/domain list path> [address family] [table] [set]
+$0 <update|panic> <IP/domain list path> [address family] [table] [set]
 	load - adds or updates IP elements in NFT set. If set is empty,
 	       elements will be added. If set holds addresses ('load' has
 	       been called before), '$0' does removal of thous that does not exist on the list (that is
@@ -77,7 +77,7 @@ fi
 
 # check no. of arguments
 if [ $# -lt 2 ] && [ $# -gt 4 ] ; then
-	print_msg_and_exit 1 "Incorrect syntax"
+	print_msg_and_exit 1 "ArgErr: Incorrect syntax"
 fi
 
 # global variables:
@@ -89,25 +89,49 @@ _NFT_SET_IPs=
 
 # BEGIN: validating function
 function set_afamily() {
+	if [ "$1" == '-' ]; then
+		if [ -z "$_ADDR_FAMILY" ] ; then
+			print_msg_and_exit 3 "ConfigErr: Address family has not been defined before, can not apply copy '-' sign"
+		fi
+
+		return;
+	fi
+
 	if ! [[ "$1" =~ ^(ip|ip6|inet|arp|bridge|netdev)$ ]]; then
-		print_msg_and_exit 3 "Provide address family name"
+		print_msg_and_exit 3 "ConfigErr: Provide address family name"
 	fi
 
 	_ADDR_FAMILY=$1
 }
 
 function set_tblname () {
+	if [ "$1" == '-' ]; then
+		if [ -z "$_TABLE_NAME" ] ; then
+			print_msg_and_exit 3 "ConfigErr: Table name has not been defined before, can not apply copy '-' sign"
+		fi
+
+		return;
+	fi
+
 	if ! [[ "$1" =~ ^([a-zA-Z0-9_\.]){1,16}$ ]]; then
-		print_msg_and_exit 3 "Provide correct table name"
+		print_msg_and_exit 3 "ConfigErr: Provide correct table name"
 	fi
 
 	_TABLE_NAME=$1
 }
 
 function set_setname () {
+	if [ "$1" == '-' ]; then
+		if [ -z "$_SET_NAME" ] ; then
+			print_msg_and_exit 3 "ConfigErr: Set name has not been defined before, can not apply copy '-' sign"
+		fi
+
+		return;
+	fi
+
 	# Set names must be 16 characters or less
 	if ! [[ "$1" =~ ^([a-zA-Z0-9]){1,16}$ ]]; then
-		print_msg_and_exit 3 "NFT set's name should be an alpha-numeric label of upto 16 char. long"
+		print_msg_and_exit 3 "ConfigErr: NFT set's name should be an alpha-numeric label of upto 16 char. long"
 	fi
 
 	_SET_NAME=$1
@@ -135,7 +159,7 @@ fi
 TIMEOUT_FLAG="timeout $IP_TIMEOUT"
 
 
-function instr () {
+function load_directive () {
 
 	case $1 in
 		\@set)
@@ -144,6 +168,8 @@ function instr () {
 			set_setname $4
 
 			load_set
+
+			echo "$_FLAG_ARG"
 		;;
 
 		\@include)
@@ -168,6 +194,7 @@ function instr () {
 
 			#ps
 			ps -o ppid=$$
+			echo "$2"
 		;;
 
 		\@onpanic)
@@ -175,7 +202,7 @@ function instr () {
 		;;
 
 		*)
-			echo "Unknown instruction '$1'"
+			echo "Unknown directive '$1'"
 	esac
 }
 
@@ -197,7 +224,7 @@ function op_load () {
 OP=$1
 function load_set () {
 	case $OP in
-	load|init|update)
+	u|update)
 
 		SET_TYPE=$(nft --json list set $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME | jq -r '.nftables[1].set.type')
 		SET_FLAGS=$(nft --json list set $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME | jq -r '.nftables[1].set.flags')
@@ -251,6 +278,19 @@ while read line; do
 		continue;
 	fi
 
+	if [[ "$line" =~ ^\@[a-zA-Z0-9].*$ ]] ; then
+		# set global variables to refer to set
+		echo -n "Loading $line:"
+		load_directive $line
+
+		continue;
+	fi
+
+	if [ -z "$_SET_NAME" ]; then
+		print_msg_and_exit 4 "ConfigErr: NFT set is not defined"
+	fi
+
+	arp_list=''
 	ip4_list=''
 	ip6_list=''
 
@@ -261,11 +301,14 @@ while read line; do
 	     [[ "$line" =~ ^.*\:.*\:.*(\/[0-9]{1,2})?$ ]]; then
 		# ipv6 matched
 		ip6_list=$line
+	elif [[ "$line" =~ ^([0-1a-fA-F][0-1a-fA-F]\:){5}[0-1a-fA-F][0-1a-fA-F]$ ]] ; then
+		arp_list=$line
 	elif [[ "$line" =~ ^[a-zA-Z0-9|\-]{1,255}(\.[a-zA-Z0-9|\-]{1,255})*$ ]] ; then
+		# domain name matched
 		DNAME=$line
 		# query CloudFlare DOH: 
 
-		if [ $SET_TYPE == 'ipv4_addr' -o $SET_TYPE == 'ether_addr' ] ; then
+		if [ $SET_TYPE == 'ipv4_addr' ] ; then
 			dns_resp=$(curl --silent -H "accept: application/dns-json" \
 							"https://1.1.1.1/dns-query?name=$DNAME&type=A")
 
@@ -273,11 +316,9 @@ while read line; do
 				ip4_list=$(echo $dns_resp | jq -r -c ".Answer[] | select(.type == 1) | .data")
 			else
 				# No answer section for
-				echo "Can't resolve '$DNAME' A"
+				echo "DataErr: Can't resolve '$DNAME' A"
 			fi
-		fi
-
-		if [ $SET_TYPE == 'ipv6_addr' -o $SET_TYPE == 'ether_addr' ] ; then
+		elif [ $SET_TYPE == 'ipv6_addr' ] ; then
 			dns_resp=$(curl --silent -H "accept: application/dns-json" \
 							"https://1.1.1.1/dns-query?name=$DNAME&type=AAAA")
 
@@ -285,22 +326,21 @@ while read line; do
 				ip6_list=$(echo $dns_resp | jq -r -c ".Answer[] | select(.type == 28) | .data")
 			else
 				# No answer section for
-				echo "Can't resolve '$DNAME' AAAA"
+				echo "DataErr: Can't resolve '$DNAME' AAAA"
 			fi
+		else # wrong SET_TYPE for domain name resolution results, at this point SET_TYPE can not be empty (it has been set together with _SET_NAME)
+			# domain name can be resolved only to type 'ipv4_addr' or 'ipv6_addr'
+			# but other type has been set
+			echo "DataErr: Can not add domain name IP - set '$_ADDR_FAMILY $_TABLE_NAME $_SET_NAME' is of an incorrect type"
 		fi
-	elif [[ "$line" =~ ^\@[a-zA-Z0-9].*$ ]] ; then
-		# set global variables to refer to set
-		instr $line
-
-		echo "$OP nft set: $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME"
-		echo "Flags: $_FLAG_ARG"
 	else 
-		# no domain nor IP mached, skip line
-		echo "WARN: Skipping line no. $line_no - no valid IP nor domain name: $line"
+		# no domain nor IP matched, skip line
+		echo "DataErr: Skipping line no. $line_no - no valid IP nor domain name: $line"
 	fi
 
-	for ipaddr in $ip4_list $ip6_list; do
-		op_$OP $ipaddr
+
+	for addr in $ip4_list $ip6_list $arp_list; do
+		op_$OP $addr
 	done
 
 done < "$ENTRY_LIST"
