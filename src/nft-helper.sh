@@ -2,7 +2,7 @@
 # Based on: 
 # https://openwrt.org/docs/guide-user/firewall/filtering_traffic_at_ip_addresses_by_dns
 
-VERSION="1.2.9-alpha" # --PKG_VERSION_MARK-- DO NOT REMOVE THIS COMMENT
+_VERSION="1.2.9-alpha" # --PKG_VERSION_MARK-- DO NOT REMOVE THIS COMMENT
 
 [ -n "$PRETEND" ] && [[ $(echo "$PRETEND" | tr '[:upper:]' '[:lower:]') =~ ^y|yes|1|on$ ]] && \
         NFT="echo nft(pretend) " || NFT="nft"
@@ -12,43 +12,38 @@ VERSION="1.2.9-alpha" # --PKG_VERSION_MARK-- DO NOT REMOVE THIS COMMENT
 
 
 function print_version () {
-	echo 'NFT List, version: '$VERSION
+	echo 'NFT List, version: '$_VERSION
 	echo "By Mateusz Piwek"
 }
+
+_DEFAULT_EL_TIMEOUT="3d"
+_DEFAULT_CONF='/etc/nftlists/enabled'
+_DEFAULT_INCL='/etc/nftlists/included'
+
 
 function print_help () {
 	cat > $1 << EOF
 Command syntax: 
-$0 <update|panic> <IP/domain list path> [address family] [table] [set]
-	load - adds or updates IP elements in NFT set. If set is empty,
-	       elements will be added. If set holds addresses ('load' has
-	       been called before), '$0' does removal of thous that does not exist on the list (that is
-	       a file indicated by a next argument).
+$(basename $0) <update|panic> [conf. path] [--set <address family> <table> <set>] [--includedir <path>]
 
-		   If domain name is provided by the list, it will be resolved to an IP address.
-		   If domain has been resolved before, hence 'load' is called again,
-		   firewall will be updated to reflect current A/AAAA record resolution from DNS.
-		   (if any of IP's is not resolved anymore, it will be removed from firewall).
-
-	<IP/domain list path> - Path to file containing address list, it should have '.list' extension.
+	update,u - updates NFT sets according to settings from configuration
+	panic    - keep, or discard NFT sets that has been marked by directive @onpanic
 
 	Optional:
-		address family, table and nft set can be provided as command argument, if so
-		list defined in a file does not need to be preceded by '@set' instruction.
+	<conf path> - path to file or directory holding address resources.
 
-		It is correct to provide only address family and a table, of just a table name.
-		In this case '@set' instruction included in a file should have 'up match'
-		character ('-') as first or first two arguments:
-		@set - - set1
-		... IP/arp/domain list
-		@set - - set2
-		... IP/arp/domain list that apply to the same table. but other set
+	--set,-s - define set, replaces '@set' directive from file.
+	--includedir,-D - indicates search directory for files included with '@include' directive
 
-$0 --version | -v
-	Print version.
+	If settings are not provided default:
+		''$_DEFAULT_CONF' as configuration directory and
+		''$_DEFAULT_INCL' as include directory is used.
 
-$0 --help | -h
-	Print this help.
+$(basename $0) --help | -h
+	Print this help
+
+$(basename $0) --version | -v
+	Print version
 EOF
 }
 
@@ -85,6 +80,7 @@ _ADDR_FAMILY=
 _TABLE_NAME=
 _SET_NAME=
 
+_SET_TYPE=
 _NFT_SET_IPs=
 
 # BEGIN: validating function
@@ -98,7 +94,7 @@ function set_afamily() {
 	fi
 
 	if ! [[ "$1" =~ ^(ip|ip6|inet|arp|bridge|netdev)$ ]]; then
-		print_msg_and_exit 3 "ConfigErr: Provide address family name"
+		print_msg_and_exit 3 "ConfigErr: Address family name has not been provided"
 	fi
 
 	_ADDR_FAMILY=$1
@@ -138,11 +134,29 @@ function set_setname () {
 }
 # END
 
-# BEGIN: validate first argument that shall be a file name
-ENTRY_LIST=$2
-if ! [ -f "$ENTRY_LIST" ]; then
-	print_msg_and_exit 3 "Provide domain/IP source list"
+# BEGIN: read file or directory path
+if [ -z "$2" ] ; then
+	# default configuration location
+	LIST_INPUT='/etc/nftlists/enabled'
+	INC_LIST_INPUT='/etc/nftlists/included'
+else
+	LIST_INPUT=$2
+	INC_LIST_INPUT=
 fi
+
+if [ ! -e "$LIST_INPUT" ] ; then
+	echo "Input is not a file"
+fi
+
+LIST_INPUT=$(realpath "$LIST_INPUT")
+
+
+if [ -d "$LIST_INPUT" ] ; then
+	_files_list=$(find "$LIST_INPUT" -maxdepth 1 -type f -name '*.list' | sort)
+elif [ -f "$LIST_INPUT" ] ; then
+	_files_list=("$LIST_INPUT")
+fi
+
 # END
 
 # BEGIN load configuration:
@@ -150,13 +164,10 @@ if [ -f /etc/conf.d/nft-helper ] ; then
         . /etc/conf.d/nft-helper
 fi
 
-if [[ ! "$IP_TIMEOUT" =~ ^([0-9]{1,3}[s|m|h|d]){1,4}$ ]] ; then
-	IP_TIMEOUT="3d"
-	echo "Setting default IP timeout to: $IP_TIMEOUT"
+if [[ "$TIMEOUT" =~ ^([0-9]{1,3}[s|m|h|d]){1,4}$ ]] ; then
+	_DEFAULT_EL_TIMEOUT=$TIMEOUT
 fi
 # END
-
-TIMEOUT_FLAG="timeout $IP_TIMEOUT"
 
 
 function load_directive () {
@@ -167,7 +178,7 @@ function load_directive () {
 			set_tblname $3
 			set_setname $4
 
-			load_set
+			read_set
 
 			echo "$_FLAG_ARG"
 		;;
@@ -181,20 +192,31 @@ function load_directive () {
 			#
 			# This is to avoid circular calls.
 
-			if [ -z "$2" ] ; then
-				echo "Syntax error, missing parameter for '@include'"
-				exit 2
-			elif ! [ -f "$2" ] ; then
-				echo "File not found: '$2'"
-				exit 2
-			elif [ $(realpath $2) = $(realpath $ENTRY_LIST) ] ; then
-				echo "File can not include itself"
-				exit 2
+			if [ -z "$2" ]; then
+				print_msg_and_exit 5 "ConfErr: Syntax error, missing parameter for '@include'"
 			fi
 
-			#ps
-			ps -o ppid=$$
-			echo "$2"
+			local incl_file="$(dirname $2)/$(basename $2)"
+
+			if  [ -z "$INC_LIST_INPUT" ]; then
+				print_msg_and_exit 5 "ConfErr: Include path has not been set"
+			fi
+
+			if ! [ -e "$INC_LIST_INPUT/$incl_file" ]; then
+				echo "DataErr: Can not find file that has been declared in @include: '$2'"
+				# reset set an continue
+				_ADDR_FAMILY=
+				_TABLE_NAME=
+				_SET_NAME=
+			elif ! [ -f "$INC_LIST_INPUT/$incl_file" ]; then
+				print_msg_and_exit 5 "ConfErr: Included file is not a regular file: '$INC_LIST_INPUT/$incl_file'"
+			fi
+
+			if [ -n "$_incl_file" ]; then
+				print_msg_and_exit 5 "ConfErr: File can not be included from already included file: '$INC_LIST_INPUT/$incl_file' includes '$_incl_file'"
+			fi
+
+			_incl_file="$INC_LIST_INPUT/$incl_file"
 		;;
 
 		\@onpanic)
@@ -207,11 +229,11 @@ function load_directive () {
 }
 
 # BEGIN: function performing NFT operations:
-function op_init () {
+function load_init () {
 	$NFT add element $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME { "$1" "$_FLAG_ARG" }
 }
 
-function op_load () {
+function load_update () {
 	echo $_NFT_SET_IPs | grep -q "\"$1\"" && \
 		$NFT delete element $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME { "$1" } || \
 		echo "New IP addr. (as it has not been found in a current '$_SET_NAME' set): $1"
@@ -221,128 +243,151 @@ function op_load () {
 # END
 
 # preparations before loading data
-OP=$1
-function load_set () {
-	case $OP in
-	u|update)
 
-		SET_TYPE=$(nft --json list set $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME | jq -r '.nftables[1].set.type')
-		SET_FLAGS=$(nft --json list set $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME | jq -r '.nftables[1].set.flags')
+function read_set () {
 
-		if [ $(echo $SET_FLAGS | jq 'index("interval")') != 'null' ] && [ $OP == "update" ] ; then
-			echo "Updates for 'interval' sets not supported, doing nothing"
-			exit 0
-		fi
+	_SET_TYPE=$(nft --json list set $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME | jq -r '.nftables[1].set.type')
+	local SET_FLAGS=$(nft --json list set $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME | jq -r '.nftables[1].set.flags')
 
-		# get set IP's if any
-		ELEM_ARR="$(nft --json list set $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME | jq '.nftables[1].set.elem')"
-		if [ "$(echo $ELEM_ARR | jq '. != null')" = "true" ] ; then
-			# IP list can be an array or object
-			NFT_SET_IPs=$(echo "$ELEM_ARR" | jq '.[]')
+	# get set IP's if any
+	ELEM_ARR="$(nft --json list set $_ADDR_FAMILY $_TABLE_NAME $_SET_NAME | jq '.nftables[1].set.elem')"
 
-			if $(echo $NFT_SET_IPs | egrep -q "^\"") ; then
-				_NFT_SET_IPs=$(echo $NFT_SET_IPs | tr '\n' ' ')
-			else
-				# it's an object
-				_NFT_SET_IPs=$(echo $NFT_SET_IPs | jq '.elem["val"]' | tr '\n' ' ')
-			fi
-		fi
+	if [ "$(echo $ELEM_ARR | jq '. != null')" = "true" ] ; then
+		# IP list can be an array or object
+		local NFT_SET_IPs=$(echo "$ELEM_ARR" | jq '.[]')
 
-		# check if timeout flag is set
-		if [ $(echo $SET_FLAGS | jq 'index("timeout")') != 'null' ] ; then
-			_FLAG_ARG="$TIMEOUT_FLAG"
+		if $(echo $NFT_SET_IPs | egrep -q "^\"") ; then
+			_NFT_SET_IPs=$(echo $NFT_SET_IPs | tr '\n' ' ')
 		else
-			if [ $OP == 'update' ] ; then
-				echo "No timeout defined for '$SET_NAME', skipping update"
-				exit 0
-			fi
-
-			_FLAG_ARG=""
+			# it's an object
+			_NFT_SET_IPs=$(echo $NFT_SET_IPs | jq '.elem["val"]' | tr '\n' ' ')
 		fi
-	;;
-	*)
-		print_msg_and_exit 1 "Invalid operation: "
-	;;
-	esac
+	else
+		_NFT_SET_IPs=
+	fi
+
+	_FLAG_ARG=
+	# check if timeout flag is set
+	if [ $(echo $SET_FLAGS | jq 'index("timeout")') != 'null' ] ; then
+		_FLAG_ARG="timeout $_DEFAULT_EL_TIMEOUT"
+	else
+		_FLAG_ARG=""
+	fi
 }
 
 # read conf. file
-line_no=0
-while read line; do 
-	line_no=$(($line_no+1))
+_line_no=0
+_incl_line_no=0
+
+function parse_line() {
+	line=$1
+	_line_no=$(($_line_no+1))
 
 	# cut comment and trim line
 	line=$(echo "$line" | sed 's/\#.*/ /' | xargs)
 	if [ -z "$line" ] ; then
 		# skip empty line
-		continue;
+		return;
 	fi
 
 	if [[ "$line" =~ ^\@[a-zA-Z0-9].*$ ]] ; then
 		# set global variables to refer to set
-		echo -n "Loading $line:"
+		echo -n "Loading $line: "
 		load_directive $line
 
-		continue;
+		return;
 	fi
 
 	if [ -z "$_SET_NAME" ]; then
 		print_msg_and_exit 4 "ConfigErr: NFT set is not defined"
 	fi
 
-	arp_list=''
-	ip4_list=''
-	ip6_list=''
+	local addr_list=''
 
 	if [[ "$line" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(\/[0-9]{1,2})?$ ]] ; then
 		# ipv4 matched
-		ip4_list=$line
+		addr_list=$line
 	elif [[ "$line" =~ ^(\:\:)?[0-9a-fA-F]{1,4}(\:\:?[0-9a-fA-F]{1,4}){0,7}(\:\:)?(\/[0-9]{1,2})?$ ]] && \
 	     [[ "$line" =~ ^.*\:.*\:.*(\/[0-9]{1,2})?$ ]]; then
 		# ipv6 matched
-		ip6_list=$line
+		addr_list=$line
 	elif [[ "$line" =~ ^([0-1a-fA-F][0-1a-fA-F]\:){5}[0-1a-fA-F][0-1a-fA-F]$ ]] ; then
-		arp_list=$line
+		addr_list=$line
 	elif [[ "$line" =~ ^[a-zA-Z0-9|\-]{1,255}(\.[a-zA-Z0-9|\-]{1,255})*$ ]] ; then
 		# domain name matched
 		DNAME=$line
 		# query CloudFlare DOH: 
 
-		if [ $SET_TYPE == 'ipv4_addr' ] ; then
-			dns_resp=$(curl --silent -H "accept: application/dns-json" \
-							"https://1.1.1.1/dns-query?name=$DNAME&type=A")
+		case $_SET_TYPE in
+			ipv4_addr)
+				dns_resp=$(curl --silent --connect-timeout 3.14 -H "accept: application/dns-json" \
+							"https://1.1.1.1/dns-query?name=$DNAME&type=A" || true)
 
-			if [ $(echo $dns_resp | jq -c ".Answer != null") == 'true' ] ; then
-				ip4_list=$(echo $dns_resp | jq -r -c ".Answer[] | select(.type == 1) | .data")
-			else
-				# No answer section for
-				echo "DataErr: Can't resolve '$DNAME' A"
-			fi
-		elif [ $SET_TYPE == 'ipv6_addr' ] ; then
-			dns_resp=$(curl --silent -H "accept: application/dns-json" \
-							"https://1.1.1.1/dns-query?name=$DNAME&type=AAAA")
+				if [ -n "$dns_resp" ] && [ $(echo $dns_resp | jq -c ".Answer != null") == 'true' ] ; then
+					addr_list=$(echo $dns_resp | jq -r -c ".Answer[] | select(.type == 1) | .data")
+				else
+					# No answer section for
+					echo "DataErr: Can't resolve '$DNAME' A"
+				fi
+				;;
 
-			if [ $(echo $dns_resp | jq -c ".Answer != null") == 'true' ] ; then
-				ip6_list=$(echo $dns_resp | jq -r -c ".Answer[] | select(.type == 28) | .data")
-			else
-				# No answer section for
-				echo "DataErr: Can't resolve '$DNAME' AAAA"
-			fi
-		else # wrong SET_TYPE for domain name resolution results, at this point SET_TYPE can not be empty (it has been set together with _SET_NAME)
-			# domain name can be resolved only to type 'ipv4_addr' or 'ipv6_addr'
-			# but other type has been set
-			echo "DataErr: Can not add domain name IP - set '$_ADDR_FAMILY $_TABLE_NAME $_SET_NAME' is of an incorrect type"
-		fi
+			ipv6_addr)
+				dns_resp=$(curl --silent --connect-timeout 3.14 -H "accept: application/dns-json" \
+							"https://1.1.1.1/dns-query?name=$DNAME&type=AAAA" || true)
+
+				if [ -n "$dns_resp" ] && [ $(echo $dns_resp | jq -c ".Answer != null") == 'true' ] ; then
+					addr_list=$(echo $dns_resp | jq -r -c ".Answer[] | select(.type == 28) | .data")
+				else
+					# No answer section for
+					echo "DataErr: Can't resolve '$DNAME' AAAA"
+				fi
+				;;
+			*)
+				# wrong SET_TYPE for domain name resolution results, at this point SET_TYPE can not be empty (it has been set together with _SET_NAME)
+				# domain name can be resolved only to type 'ipv4_addr' or 'ipv6_addr'
+				# but other type has been set
+				echo "DataErr: Can not add domain name IP - set '$_ADDR_FAMILY $_TABLE_NAME $_SET_NAME' is of an incorrect type"
+				;;
+		esac
 	else 
 		# no domain nor IP matched, skip line
 		echo "DataErr: Skipping line no. $line_no - no valid IP nor domain name: $line"
 	fi
 
+	local load_fun=
 
-	for addr in $ip4_list $ip6_list $arp_list; do
-		op_$OP $addr
+	if [ -z "$_NFT_SET_IPs" ]; then
+		load_fun='load_init'
+	else
+		load_fun='load_init'
+	fi
+
+	for addr in $addr_list; do
+		$load_fun $addr
 	done
+}
 
-done < "$ENTRY_LIST"
+
+for file in $_files_list ; do
+	echo "Loading file: $file"
+
+	while read line; do
+
+		parse_line "$line"
+
+		if [ -n "$_incl_file" ]; then
+			# if file has been included via @include directive load content from that file
+
+			echo "Loading file: $incl_file"
+			while read incl_line; do
+				parse_line "$incl_line"
+			done < "$_incl_file"
+
+			# release incl. file
+			_incl_file=
+		fi
+
+	done < "$file"
+done
 
 exit 0

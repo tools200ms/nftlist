@@ -279,6 +279,7 @@ Comments are marked by `\#` symbol.
 Resource list should or can be proceeded by an directives:
 
 **\@set \<family\>|- \<table name\>|- \<set name\>|-**
+
 Indicates NFT target set for filling, addresses placed below this directive will be loaded to an indicated set.
 The directive must define table family, name, and set name. Minus sign (**-**) (`copy sign`) if is used for one or more `\@set`
 parameters instructs to apply previous settings (copy previous parameter) e.g.:
@@ -296,7 +297,16 @@ parameters instructs to apply previous settings (copy previous parameter) e.g.:
 ... addresses ...
 ```
 
+**\@query \<selector\>**
+
+Do additional DNS query if domain name is encountered, selector indicates query type:
+- **\@query subdomain.** - query also subdomain, e.g.:
+    > **\@query www.**
+
+    also checks `www.` subdomain for each encountered domain in a current set
+
 **\@include \<file name\>**
+
 Include file, file that is to be included must be located inside `/etc/nftlists/included`.
 It does not need to have `.list` extension, it can be compressed, the compression algorithm
 must be indicated by a correct extension: `.gz`, `.zip` ...
@@ -355,9 +365,9 @@ nftlist update /etc/my_list.list
 # or
 nftlist update /etc/my_list_directory/
 # additionally include directory can be indicated:
-nftlist update /etc/my_list.list --include /etc/incl_lists/
+nftlist update /etc/my_list.list --includedir /etc/incl_lists/
 # or shortly:
-nftlist update /etc/my_list.list -i /etc/incl_lists/
+nftlist update /etc/my_list.list -D /etc/incl_lists/
 ```
 
 Set can be indicated as a command line argument:
@@ -474,8 +484,10 @@ NFT Helper is useful with containerization/virtualisation technics where running
 
 
 **Practice**
+
 [serverfault: nftables: referencing a set from another table](https://serverfault.com/questions/1145318/nftables-referencing-a-set-from-another-table)
 
 **Bad addresses databases**
+
 Phishing Database: [github: mitchellkrogza/Phishing.Database](https://github.com/mitchellkrogza/Phishing.Database/)
 
