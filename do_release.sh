@@ -8,7 +8,7 @@ function do_release() {
 	echo "Making release"
 		
 	#find version:
-	VERSION=$(grep -e "^VERSION.*--PKG_VERSION_MARK--.*$" src/nft-helper.sh | sed 's/\(^VERSION\s*=\s*\)\(.*\)\(\#.*$\)/\2/' | tr -d '"' | tr -d "'" | xargs)
+	VERSION=$(grep -e "^VERSION.*--PKG_VERSION_MARK--.*$" src/nftlist.sh | sed 's/\(^VERSION\s*=\s*\)\(.*\)\(\#.*$\)/\2/' | tr -d '"' | tr -d "'" | xargs)
 	
 	if [ -z $VERSION ] || ! [[ "$VERSION" =~ ^[a-z|0-9|\.|\-]{3,32}$ ]]; then
 		echo "No version has been found, or incorrect version format"
@@ -30,7 +30,7 @@ function do_release() {
 	#tar --transform "s/^src/$RELEASE_NAME/" -czf $RELEASE_PATH src
 	tar --transform "s/^src\/nft-helper.sh/usr\/local\/bin\/nftlist.sh/" \
 		--transform "s/^src\/nft-helper/etc\/init.d\/nftlist/" \
-		-czf $RELEASE_PATH src/nft-helper.sh src/nft-helper
+		-czf $RELEASE_PATH src/nftlist.sh src/nftlist
 	
 	echo "File prepared: $RELEASE_PATH"
 }

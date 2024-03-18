@@ -106,7 +106,7 @@ or `NFT Helper` can do this for you. Define file such as:
 
 and load:
 ```bash
-nft-helper.sh sync /etc/nftdef/allowed_hosts.list
+nftlist.sh sync /etc/nftdef/allowed_hosts.list
 ```
 `NFT Helper` comes with OpenRC init script to load settings a boot time, and cron script for periodic reloads. More in ...
 

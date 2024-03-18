@@ -27,17 +27,19 @@ Command syntax:
 $(basename $0) <update|panic> [conf. path] [--set <address family> <table> <set>] [--includedir <path>]
 
 	update,u - updates NFT sets according to settings from configuration
+	purge    - delete all elements of NFT sets referred in configuration
 	panic    - keep, or discard NFT sets that has been marked by directive @onpanic
 
 	Optional:
-	<conf path> - path to file or directory holding address resources.
+	<conf path> - path to file or directory configuration, if path is a directory
+	              all '*.list' files under this location are loaded (no recurcive search)
 
 	--set,-s - define set, replaces '@set' directive from file.
 	--includedir,-D - indicates search directory for files included with '@include' directive
 
-	If settings are not provided default:
-		''$_DEFAULT_CONF' as configuration directory and
-		''$_DEFAULT_INCL' as include directory is used.
+	If settings are not provided, default values are:
+		'$_DEFAULT_CONF' as configuration directory and
+		'$_DEFAULT_INCL' as include directory is used.
 
 $(basename $0) --help | -h
 	Print this help
@@ -137,41 +139,49 @@ function set_setname () {
 # BEGIN: read file or directory path
 if [ -z "$2" ] ; then
 	# default configuration location
-	LIST_INPUT='/etc/nftlists/enabled'
-	INC_LIST_INPUT='/etc/nftlists/included'
+	LIST_INPUT=$_DEFAULT_CONF
+	INC_LIST_INPUT=$_DEFAULT_INCL
 else
 	LIST_INPUT=$2
 	INC_LIST_INPUT=
 fi
 
 if [ ! -e "$LIST_INPUT" ] ; then
-	echo "Input is not a file"
+	echo "Location does not exists: '$LIST_INPUT'"
+	exit 3
 fi
+
 
 LIST_INPUT=$(realpath "$LIST_INPUT")
 
-
 if [ -d "$LIST_INPUT" ] ; then
 	_files_list=$(find "$LIST_INPUT" -maxdepth 1 -type f -name '*.list' | sort)
+  if [ -z "$_files_list" ] ; then
+    echo "Conf. directory exists, but no conf. files found."
+    exit 0
+  fi
 elif [ -f "$LIST_INPUT" ] ; then
 	_files_list=("$LIST_INPUT")
+else
+  echo "'path' should be a file or directory"
+  exit 4
 fi
 
 # END
 
 # BEGIN load configuration:
-if [ -f /etc/conf.d/nft-helper ] ; then
-        . /etc/conf.d/nft-helper
+if [ -f /etc/conf.d/nftlist ] ; then
+        . /etc/conf.d/nftlist
 fi
 
 if [[ "$TIMEOUT" =~ ^([0-9]{1,3}[s|m|h|d]){1,4}$ ]] ; then
+  # overwrite default elem. timeout.
 	_DEFAULT_EL_TIMEOUT=$TIMEOUT
 fi
 # END
 
 
 function load_directive () {
-
 	case $1 in
 		\@set)
 			set_afamily $2

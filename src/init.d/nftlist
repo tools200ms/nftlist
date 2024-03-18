@@ -1,0 +1,26 @@
+#!/sbin/openrc-run
+
+extra_started_commands="refresh"
+LISTS_DIR="/etc/nftlists/enabled"
+
+depend() {
+	need nftables
+	before ulogd
+	after networking
+}
+
+start() {
+	nftlist update
+}
+
+stop() {
+    nftlist purge
+}
+
+refresh() {
+	nftlist update
+}
+
+panic() {
+    nftlist panic
+}

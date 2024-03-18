@@ -9,9 +9,9 @@ services:
     build:
       context: .
     volumes:
-      - ./src/nft-helper:/etc/init.d/nft-helper
-      - ./src/nft-helper.sh:/usr/local/bin/nft-helper.sh
-      - ./src/nft-helper.daily.sh:/etc/periodic/daily/nft-helper.daily.sh
+      - ./src/init.d/nftlist:/etc/init.d/nftlist
+      - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh
+      - ./src/nftlist.sh:/usr/local/bin/nftlist.sh
 
       - ./test/nft_settings.sh:/root/nft_settings.sh
       - ./test/test_tbl-test_out-testset.list:/etc/nftlists/available/test_tbl-test_out-testset.list
@@ -29,9 +29,9 @@ services:
     build:
       context: .
     volumes:
-      - ./src/nft-helper:/etc/init.d/nft-helper
-      - ./src/nft-helper.sh:/usr/local/bin/nft-helper.sh
-      - ./src/nft-helper.daily.sh:/etc/periodic/daily/nft-helper.daily.sh
+      - ./src/init.d/nftlist:/etc/init.d/nftlist
+      - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh
+      - ./src/nftlist.sh:/usr/local/bin/nftlist.sh
 
       - ./test/nft_settings.sh:/root/nft_settings.sh
       - ./test/test_tbl-test_out-testset.list:/etc/nftlists/available/test_tbl-test_out-testset.list
