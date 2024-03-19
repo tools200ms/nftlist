@@ -24,7 +24,7 @@ _DEFAULT_INCL='/etc/nftlists/included'
 function print_help () {
 	cat > $1 << EOF
 Command syntax: 
-$(basename $0) <update|panic> [conf. path] [--set <address family> <table> <set>] [--includedir <path>]
+$(basename $0) <update|purge|panic> [conf. path] [--set <address family> <table> <set>] [--includedir <path>]
 
 	update,u - updates NFT sets according to settings from configuration
 	purge    - delete all elements of NFT sets referred in configuration
@@ -34,12 +34,12 @@ $(basename $0) <update|panic> [conf. path] [--set <address family> <table> <set>
 	<conf path> - path to file or directory configuration, if path is a directory
 	              all '*.list' files under this location are loaded (no recurcive search)
 
-	--set,-s - define set, replaces '@set' directive from file.
+	--set,-s - define set, replaces '@set' directive from file
 	--includedir,-D - indicates search directory for files included with '@include' directive
 
 	If settings are not provided, default values are:
 		'$_DEFAULT_CONF' as configuration directory and
-		'$_DEFAULT_INCL' as include directory is used.
+		'$_DEFAULT_INCL' as include directory is used
 
 $(basename $0) --help | -h
 	Print this help

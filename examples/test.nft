@@ -8,6 +8,8 @@ table inet my_table {
     set allowed_hosts {
         type ipv4_addr;
         flags timeout, interval;
+
+        auto-merge;
     }
 
     set allowed_ports {

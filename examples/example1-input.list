@@ -1,4 +1,5 @@
-# /etc/nftdef/allowed_hosts.list
+# /etc/nftlists/available/allowed_hosts.list
+
 # host that are allowed for connecting this box
 
 @allowed_hosts # load bellow addresses into 'allowed_hosts' set

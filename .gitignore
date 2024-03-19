@@ -2,10 +2,15 @@
 *~
 *.o
 *.so
-build/*
-release/*
-test/data/*
+build/
+venv/
+
+release/
+test/data/
 
 # Development IDEs:
-.kdev4/*
+.kdev4/
 *.kdev4
+
+# JetBrains IDE
+.idea/

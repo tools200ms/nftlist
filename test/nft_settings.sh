@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/sbin/nft -f
 
 nft flush ruleset
 
@@ -18,6 +18,3 @@ nft add rule inet test_tbl test_out ip6 daddr @testset1d counter
 nft add rule inet test_tbl test_out ip saddr @testset2s counter
 
 nft list ruleset
-
-
-exit 0
