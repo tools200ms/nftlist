@@ -62,7 +62,7 @@ table inet my_table {
         flags timeout, interval;
     }
 
-    set allowed_ports {
+    set allowed_tcp_ports {
         type inet_service;
         flags interval;
         elements = { ssh, http, https, http-alt, 3000-5000 }
@@ -81,15 +81,15 @@ table inet my_table {
             comment "Accept traffic originated from us"
 
         # Input Part II: do an exception for incoming traffic for
-        # `@allowed_hosts` to `allowed_ports`
-        tcp dport @allowed_ports \
+        # `@allowed_hosts` to `allowed_tcp_ports`
+        tcp dport @allowed_tcp_ports \
         ip  saddr @allowed_hosts counter ct state new accept \
             comment "Accept connections for chosen hosts to selected ports"
     }
 }
 ```
 This is a very basic firewall configuration. It opens host (`Input Pert I`) for outgoing connections while dropping traffic originated from outside.
-But as an exception (`Input Pert II`) chosen `allowed_hosts` hosts can be allowed for connecting host at `allowed_ports`.
+But as an exception (`Input Pert II`) chosen `allowed_hosts` hosts can be allowed for connecting host at `allowed_tcp_ports`.
 
 Once when NFT with this configuration is loaded (note `flush ruleset` - that purges all previous settings) `allowed_hosts` is empty.
 Therefore, no other host is allowed to let in, access can be open from command line:

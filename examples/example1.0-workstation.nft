@@ -10,7 +10,7 @@ table inet my_table {
         flags timeout, interval;
     }
 
-    set allowed_ports {
+    set allowed_tcp_ports {
         type inet_service;
         flags interval, constant;
         elements = { ssh, http, https, http-alt, 3000-5000 }
@@ -26,7 +26,7 @@ table inet my_table {
         ct state { established, related } accept \
             comment "Accept traffic originated from us"
 
-        tcp dport @allowed_ports \
+        tcp dport @allowed_tcp_ports \
         ip  saddr @allowed_hosts counter ct state new accept \
             comment "Accept connections for chosen hosts to selected ports"
     }

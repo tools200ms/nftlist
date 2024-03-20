@@ -1,0 +1,73 @@
+#!/sbin/nft -f
+
+# place correct interfaces
+
+define LAN_NET = "10.42.0.0/24"
+define LAN_NIC = "eth0"
+
+table inet router {
+
+    set allowed_lan_hosts {
+        type ipv4_addr;
+        flags timeout, interval;
+    }
+
+    set allowed_lan_tcp_ports {
+        type inet_service;
+        flags interval, constant;
+        elements = { ssh, http, https, http-alt }
+    }
+
+    set allowed_ext_ip4hosts {
+        type ipv4_addr;
+        flags timeout, interval;
+    }
+
+    set allowed_ext_ip6hosts {
+        type ipv6_addr;
+        flags timeout, interval;
+    }
+
+    set allowed_ext_tcp_ports {
+        type inet_service;
+        flags interval, constant;
+        elements = { ssh, http, https, http-alt }
+    }
+
+    chain input {
+        type filter hook input priority 0; policy drop;
+
+        iifname lo accept \
+            comment "Accept any localhost traffic"
+        ct state invalid drop \
+            comment "Drop invalid connections"
+        ct state { established, related } accept \
+            comment "Accept traffic originated from us"
+
+        iifname ! $LAN_NIC tcp dport @allowed_ext_ports \
+                           ip  saddr @allowed_ext_ip4hosts counter ct state new accept \
+            comment "Accept external connections for chosen IPv4 hosts to selected ports"
+
+        iifname ! $LAN_NIC tcp dport @allowed_ext_ports \
+                           ip  saddr @allowed_ext_ip6hosts counter ct state new accept \
+            comment "Accept external connections for chosen IPv6 hosts to selected ports"
+
+        iifname $LAN_NIC tcp dport @allowed_lan_ports \
+                         ip  saddr @allowed_lan_hosts counter ct state new accept \
+            comment "Accept connections for chosen LAN hosts to selected ports"
+    }
+
+    chain postrouting {
+        type nat hook postrouting priority srcnat; policy accept;
+        ip saddr $LAN_NET ip daddr != $LAN_NET masquerade
+    }
+
+    chain forward {
+        type filter hook forward priority filter; policy reject;
+
+        ip daddr $LAN_NET oifname $LAN_NIC ct state { established, related } accept
+        ip saddr $LAN_NET iifname $LAN_NIC accept
+
+        iifname $LAN_NIC oifname $LAN_NIC accept
+    }
+}

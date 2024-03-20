@@ -12,8 +12,8 @@ _VERSION="1.2.9-alpha" # --PKG_VERSION_MARK-- DO NOT REMOVE THIS COMMENT
 
 
 function print_version () {
-	echo 'NFT List, version: '$_VERSION
-	echo "By Mateusz Piwek"
+	echo 'NFT List little, version: '$_VERSION
+	echo "Created by Mateusz Piwek, released with MIT License"
 }
 
 _DEFAULT_EL_TIMEOUT="3d"

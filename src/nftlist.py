@@ -1,12 +1,68 @@
-
+import os
 import sys
+from abc import abstractmethod
+from dataclasses import dataclass
 from enum import Enum
+import re
 
 import nftables
 import json
 
 from os import listdir
-from os.path import isfile, isdir, exists, join
+from os.path import isfile, isdir, exists, join, normpath, realpath
+
+
+class CmdOption:
+    __context_pattern = re.compile("[a-z0-9]{1,32}")
+    __context = {}
+
+    @staticmethod
+    @abstractmethod
+    def validate(arg):
+        pass
+
+    def context(self, name: str, value = None):
+        if self.__context_pattern.fullmatch(name) == None:
+            raise Exception('Internal error, not allowed context name')
+
+        if value == None:
+            return self.__context[name]
+
+        self.__context[name] = value
+        return None
+
+class BinaryArg:
+    @staticmethod
+    @abstractmethod
+    def validate(arg) -> bool:
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def print(self) -> None:
+        pass
+
+
+class StrArg:
+    @staticmethod
+    @abstractmethod
+    def validate(arg):
+        pass
+
+    @abstractmethod
+    def feed(self):
+        pass
+
+class StrArgWCnt(StrArg):
+    def __init__(self):
+        self.__arg_feed_cnt = -1
+
+    def postincr(self, skip = False):
+        self.__arg_feed_cnt += 1
+        return self.__arg_feed_cnt
+
+    def decr(self):
+        self.__arg_feed_cnt -= 1
 
 class ConfError(Exception):
     pass
@@ -16,92 +72,144 @@ class DataError(Exception):
 
 
 class Program:
-    class Action (Enum):
+    @staticmethod
+    def name() -> str: return "NFT List"
+    @staticmethod
+    def command() -> str: return "nftlist"
+    @staticmethod
+    def Author() -> str: return "Mateusz Piwek"
+
+    @staticmethod
+    def Version() -> str: return "1.2.9 - alpha"
+
+    @staticmethod
+    def License() -> str: return "MIT License"
+
+    class Action (CmdOption, Enum):
         UPDATE = 'update'
         PURGE = 'purge'
         PANIC = 'panic'
 
-        def __init__(self, manual = False):
-            self.manual = manual
-
-        def isManual(self):
-            return self.manual
+        def __init__(self, value):
+            self.context('wizzard', False)
+            self.__value = value
 
         @staticmethod
         def validate(arg):
             res = None
             match(arg):
                 case 'update' | 'u':
-                    res = Program.Action.UPDATE()
+                    res = Program.Action.UPDATE
                 case 'purge':
-                    res = Program.Action.PURGE()
+                    res = Program.Action.PURGE
                 case 'panic':
-                    res = Program.Action.PANIC()
+                    res = Program.Action.PANIC
             return res
 
-    class ConfPath:
-        DEFAULT='/etc/nftlists/enabled'
-        def __init__(self, path = DEFAULT):
-            self.path = path
+    class ConfPath(CmdOption):
+        @staticmethod
+        def DEFAULT() -> str: return '/etc/nftlists/enabled'
+
+        def getPath(self):
+            return self.__path
+
+        def __init__(self, path : str = None):
+            if path == None:
+                self.__path = Program.ConfPath.DEFAULT()
+            else:
+                self.__path = path
+
+            if isdir(self.__path):
+                self.__isdir = True
+            elif isfile(self.__path):
+                self.__isdir = False
+            else:
+                raise Exception('Configuration file or direcotry not found')
+
+            self.__path = realpath(self.__path)
+        def isDir(self):
+            return self.__isdir
         @staticmethod
         def validate(arg):
-            res = None
-            if isfile(arg) or isdir(arg):
-                res = Program.ConfPath(arg)
+            return Program.ConfPath(arg)
 
-            return res
-    class SetDArg:
+    class SetArg(StrArgWCnt):
         def __init__(self):
-            self.arg_feed_cnt = 0
-            self.family = None
-            self.table = None
-            self.set = None
+            super().__init__()
+            self._family = None
+            self._table = None
+            self._set = None
 
         @staticmethod
         def validate(arg):
-            if arg == 'set' or arg == 's':
+            if arg == '--set' or arg == '-s':
                 return Program.SetArg()
             return None
+
         def feed(self, arg):
-            match(self.arg_feed_cnt):
+            if arg.startswith('--'):
+                raise ConfError('Incorrect syntax')
+
+            match(self.postincr()):
                 case 0:
-                    self.family = arg
+                    self._family = arg
                 case 1:
-                    self.table = arg
+                    self._table = arg
                 case 2:
-                    self.set = arg
+                    self._set = arg
+                    # end of data list
+                    return None
+                case _:
+                    raise Exception('Something wrong went with a code flow')
 
-            self.arg_feed_cnt += 1
+            return self
 
-    class inclDArg:
-        pass
+    class SetDirect(SetArg):
+        def validate(self, arg):
+            if arg == '@set':
+                return Program.SetDirect()
+            return None
 
-    class InclDirArg:
+    class InclDirArg(StrArg):
         DEFAULT = '/etc/nftlists/included'
 
-        def __init__(self):
-            self.path = Program.InclDirArg.DEFAULT
-        def feed(self, arg):
+        def __init__(self, path : str = None):
+            if path == None:
+                path = Program.InclDirArg.DEFAULT
+
+            self.setPath(path)
+        def setPath(self, path : str):
             if isdir(arg):
-                self.path = arg
-            elif exists(arg):
+                self.__path = path
+            # specifig error msg.
+            elif exists(path):
                 raise ConfError('--includedir should be a directory path')
             else:
                 raise ConfError('--includedir does not point to existing directory')
 
-    class HelpArg:
+            self.__path = realpath(self.__path)
+
+        def getPath(self) -> str:
+            return self.__path
+        def validate(arg):
+            if arg == '--includedir' or arg == '-D':
+                return Program.InclDirArg(None)
+            return None
+
+        def feed(self, arg):
+            self.setPath(arg)
+            return None
+
+    class HelpArg (BinaryArg):
 
         @staticmethod
         def validate(arg):
             return arg == '--help' or '-h'
 
-        def feed(self, arg):
-            return False
-
         @staticmethod
         def print(self):
             print(f"Command syntax: \
-{} <update|purge|panic> [conf. path] [--set <address family> <table> <set>] [--includedir <path>]\
+{Program.command()} <update|purge|panic> [conf. path] [--set <address family> <table> <set>] [--includedir <path>]\
 \
 	update,u - updates NFT sets according to settings from configuration\
 	purge    - delete all elements of NFT sets referred in configuration\
@@ -124,57 +232,102 @@ $(basename $0) --help | -h\
 $(basename $0) --version | -v\
 	Print version")
 
-    class VersionArg:
-
+    class VersionArg(BinaryArg):
         @staticmethod
         def validate(arg):
             return arg == '--version' or '-v'
-        def feed(self, arg):
-            return False
 
-        def print(self):
-            pass
+        @staticmethod
+        def print():
+            print(f"NFT List, version: {Program.Version()}\
+Created by {Program.License()}, released with {Program.License()}")
 
+action = None
+config = None
 
+incl_arg = None
+set_arg = None
 
-print (sys.argv[1])
-
-action = Program.Action(True)
-config = Program.ConfPath()
-include = Program.InclDirArg()
-set = None
 feed = None
 
-# for arg in sys.argv:
-    argv = sys.argv;
-    arg_idx = 0
+for arg in sys.argv[1:]:
+    if feed != None:
+        feed = feed.feed(arg)
+        continue
 
-    if argv[arg_idx].startswith('-'):
-        if feed != '-':
-            raise ConfError('Incorrect syntax')
-
-        if Program.HelpArg.validate(argv[arg_idx]):
+    if arg.startswith('-'):
+        if Program.HelpArg.validate(arg):
             Program.HelpArg.print()
             exit(0)
-        elif Program.VersionArg.validate(argv[arg_idx]):
+        elif Program.VersionArg.validate(arg):
             Program.VersionArg.print()
             exit(0)
-        elif set == None:
-            set = Program.SetDArg(argv[arg_idx])
-            if set != None:
-                feed = set
-                arg_idx += 1
+        else:
+            feed = Program.SetArg.validate(arg)
 
-    passed_action = Program.Action.validate(argv[arg_idx])
-    if passed_action != None:
-        action = passed_action
-        arg_idx += 1
+            if feed != None:
+                if set != None:
+                    raise ConfError('Illegal argument re-declaration: ' + arg)
+                set = feed
+                continue
 
-    passed_config = Program.ConfPath(argv[arg_idx])
-    if passed_config ~= None:
-        config = passed_config
-        arg_idx += 1
+            feed = Program.InclDirArg.validate(arg)
+            if feed != None:
+                if incl_arg != None:
+                    raise ConfError('Illegal argument re-declaration: ' + arg)
 
+                incl_arg = feed
+                continue
+
+            raise ConfError('Unsupported argument: ' + arg)
+    else:
+        if action == None:
+            action = Program.Action.validate(arg)
+            if action != None:
+                continue
+
+        if config == None:
+            config = Program.ConfPath(arg)
+            if config != None:
+                continue
+
+        raise ConfError('Unidentified operation: ' + arg)
+
+# Get default values if not passed with command arguments
+if action == None:
+    action = Program.Action.UPDATE
+    action.context('wizzard', True)
+
+if config == None:
+    config = Program.ConfPath()
+
+if incl_arg == None:
+    incl_arg = Program.InclDirArg()
+
+
+conf_path = config.getPath()
+
+conf_files = []
+if config.isDir():
+    with os.scandir(conf_path) as dir_it:
+        for entry in dir_it:
+            if entry.name.endswith('.list') and entry.is_file():
+                conf_files.append(entry.name)
+else:
+    conf_files.append(conf_path)
+
+# ensure files are in alpha-numeric order:
+conf_files.sort()
+
+# parse files
+
+for cf in conf_files:
+    cf_path = join(conf_path, cf)
+    print('Reading \'' + cf_path + '\'')
+
+if set_arg == None:
+    print('No set has been encouned, exiting')
+    exit(1)
 
 
 #LIST_INPUT

@@ -11,7 +11,7 @@ services:
     volumes:
       - ./src/init.d/nftlist:/etc/init.d/nftlist
       - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh
-      - ./src/nftlist.sh:/usr/local/bin/nftlist.sh
+      - ./src/nftlist-little.sh:/usr/local/bin/nftlist-little.sh
 
       - ./test/nft_settings.sh:/root/nft_settings.sh
       - ./test/test_tbl-test_out-testset.list:/etc/nftlists/available/test_tbl-test_out-testset.list
@@ -31,7 +31,7 @@ services:
     volumes:
       - ./src/init.d/nftlist:/etc/init.d/nftlist
       - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh
-      - ./src/nftlist.sh:/usr/local/bin/nftlist.sh
+      - ./src/nftlist-little.sh:/usr/local/bin/nftlist-little.sh
 
       - ./test/nft_settings.sh:/root/nft_settings.sh
       - ./test/test_tbl-test_out-testset.list:/etc/nftlists/available/test_tbl-test_out-testset.list
