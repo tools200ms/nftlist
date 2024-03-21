@@ -486,14 +486,14 @@ NFT Helper is useful with containerization/virtualisation technics where running
 
 * Netfilter framework [at Wikipedia](https://en.wikipedia.org/wiki/Netfilter)
 
+**Administration**
 
-**Practice**
-
-[serverfault: nftables: referencing a set from another table](https://serverfault.com/questions/1145318/nftables-referencing-a-set-from-another-table)
+* Using iptables-nft: a hybrid Linux firewall [at Redhat.com](https://www.redhat.com/en/blog/using-iptables-nft-hybrid-linux-firewall)
+* [serverfault: nftables: referencing a set from another table](https://serverfault.com/questions/1145318/nftables-referencing-a-set-from-another-table)
 
 **Bad addresses databases**
 
-Phishing Database: [github: mitchellkrogza/Phishing.Database](https://github.com/mitchellkrogza/Phishing.Database/)
+* Phishing Database: [github: mitchellkrogza/Phishing.Database](https://github.com/mitchellkrogza/Phishing.Database/)
 
 **Programming**
 
