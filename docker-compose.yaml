@@ -12,12 +12,11 @@ services:
       - ./src/init.d/nftlist:/etc/init.d/nftlist
       - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh
       - ./src/nftlist-little.sh:/usr/local/bin/nftlist-little.sh
+      - ./src/test.py:/root/bin/test.py
 
-      - ./test/nft_settings.sh:/root/nft_settings.sh
-      - ./test/test_tbl-test_out-testset.list:/etc/nftlists/available/test_tbl-test_out-testset.list
-
-      - ./lists:/etc/netlists/
-      - ./examples:/usr/share/nftlist/
+      - ./lists:/etc/nftlists/included/predef
+      - ./examples:/usr/share/nftlist
+      - ./test:/root/test
 
     networks:
       - nfttest-net
@@ -32,12 +31,11 @@ services:
       - ./src/init.d/nftlist:/etc/init.d/nftlist
       - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh
       - ./src/nftlist-little.sh:/usr/local/bin/nftlist-little.sh
+      - ./src/test.py:/root/bin/test.py
 
-      - ./test/nft_settings.sh:/root/nft_settings.sh
-      - ./test/test_tbl-test_out-testset.list:/etc/nftlists/available/test_tbl-test_out-testset.list
-
-      - ./lists:/etc/netlists/
-      - ./examples:/usr/share/nftlist/
+      - ./lists:/etc/nftlists/included/predef
+      - ./examples:/usr/share/nftlist
+      - ./test:/root/test
 
     networks:
       - nfttest-net

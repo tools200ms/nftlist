@@ -128,7 +128,7 @@ function set_setname () {
 	fi
 
 	# Set names must be 16 characters or less
-	if ! [[ "$1" =~ ^([a-zA-Z0-9]){1,16}$ ]]; then
+	if ! [[ "$1" =~ ^([a-zA-Z0-9]){1,64}$ ]]; then
 		print_msg_and_exit 3 "ConfigErr: NFT set's name should be an alpha-numeric label of upto 16 char. long"
 	fi
 
@@ -155,7 +155,7 @@ fi
 LIST_INPUT=$(realpath "$LIST_INPUT")
 
 if [ -d "$LIST_INPUT" ] ; then
-	_files_list=$(find "$LIST_INPUT" -maxdepth 1 -type f -name '*.list' | sort)
+	_files_list=$(find -L "$LIST_INPUT" -maxdepth 1 -type f -name '*.list' | sort)
   if [ -z "$_files_list" ] ; then
     echo "Conf. directory exists, but no conf. files found."
     exit 0

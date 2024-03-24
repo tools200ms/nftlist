@@ -1,0 +1,4 @@
+
+IP_TIMEOUT='72h'
+CONF_PATH='/etc/nftlists/enabled'
+INCL_DIR='/etc/nftlists/included'

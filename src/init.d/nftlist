@@ -1,7 +1,9 @@
 #!/sbin/openrc-run
 
-extra_started_commands="refresh"
-LISTS_DIR="/etc/nftlists/enabled"
+extra_started_commands="refresh panic"
+
+NFTLIST='nftlist-little.sh'
+
 
 depend() {
 	need nftables
@@ -10,17 +12,25 @@ depend() {
 }
 
 start() {
-	nftlist update
+	ebegin "Starting ${RC_SVCNAME}"
+	$NFTLIST update
+	eend $?
 }
 
 stop() {
-    nftlist purge
+	ebegin "Stopping ${RC_SVCNAME}"
+	$NFTLIST purge
+	eend $?
 }
 
 refresh() {
-	nftlist update
+	ebegin "Refreshing ${RC_SVCNAME}"
+	$NFTLIST update
+	eend $?
 }
 
 panic() {
-    nftlist panic
+	ebegin "PANIC CALL: ${RC_SVCNAME}"
+	$NFTLIST panic
+	eend $?
 }
