@@ -1,8 +1,7 @@
-
-
 from nftables import Nftables
-from pprint import pprint
 import json
+
+from pprint import pprint
 
 nft = Nftables()
 nft.set_json_output(True)
@@ -37,6 +36,7 @@ rc, output, error = nft.cmd(
 rc, output, error = nft.cmd(
     "add element inet test_tbl ipbanunban { 192.168.1.200: accept, 192.168.1.201: drop }")
 
+# Chains definition:
 rc, output, error = nft.cmd(
     "add chain inet test_tbl test_in " \
     "{ type filter hook input priority 0; policy drop; }")
@@ -49,12 +49,15 @@ rc, output, error = nft.cmd(
     "add chain inet test_tbl test_nat " \
     "{ type nat hook prerouting priority 0; policy drop; }")
 
+# Add rule referring to Set
 rc, output, error = nft.cmd(
     "add rule inet test_tbl test_in ip saddr @blackhole drop")
 
+# add rule referring to Map
 rc, output, error = nft.cmd(
     "add rule inet test_tbl test_nat dnat ip to tcp dport map @porttoip")
 
+# add rule referring to VMap
 rc, output, error = nft.cmd(
     "add rule inet test_tbl test_out ip saddr @ipbanunban")
 

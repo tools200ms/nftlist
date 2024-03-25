@@ -12,7 +12,7 @@ services:
       - ./src/init.d/nftlist:/etc/init.d/nftlist
       - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh
       - ./src/nftlist-little.sh:/usr/local/bin/nftlist-little.sh
-      - ./src/test.py:/root/bin/test.py
+      - ./src/nft_example.py:/root/bin/nft_example.py
 
       - ./lists:/etc/nftlists/included/predef
       - ./examples:/usr/share/nftlist
@@ -31,7 +31,7 @@ services:
       - ./src/init.d/nftlist:/etc/init.d/nftlist
       - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh
       - ./src/nftlist-little.sh:/usr/local/bin/nftlist-little.sh
-      - ./src/test.py:/root/bin/test.py
+      - ./src/nft_example.py:/root/bin/nft_example.py
 
       - ./lists:/etc/nftlists/included/predef
       - ./examples:/usr/share/nftlist

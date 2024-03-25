@@ -27,7 +27,6 @@ add element inet test_tbl porttoip { 8080: 10.11.0.156 }
 add element inet test_tbl ipbanunban { 10.7.0.170: accept }
 add element inet test_tbl ipbanunban { 10.7.0.171: drop }
 
-
 # Rules:
 add rule inet test_tbl test_in ip saddr @blackhole drop
 add rule inet test_tbl test_nat dnat ip to tcp dport map @porttoip

@@ -8,16 +8,20 @@ Usage of this tool requires knowledge regarding Linux NFT firewall framework.
 For more information check out [NFT Quick reference in 10 minutes](https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes).
 Additionally, NFT guides with an examples can be found in [Useful links](#useful-links) section at the bottom of this page.
 
+**NOTE 2:**
+Python `nftlist.py` is under early development, at this state it is not yet ready. However, `nftlist.py` prototype that has been originally 
+written in `bash` is pretty well tested and can be used for everyday purposes. It is called `nftlist-little.sh`. Thus, please use `nftlist-little.sh`.
+
 ## Table of contents
 
 - [Overview](#overview)
 - [Quick introduction](#quick-introduction)
 - [Project's scope](#projects-scope)
 - [HowTo Use](#howto-use)
-  - [Part I: Interaction](#part-i-interaction)
+  - [Part I: Firewall](#part-i-firewall)
     - [NFT sets](#nft-sets)
     - [NFT Structure](#nft-structure)
-  - [Part II: Installation and Configuration](#part-ii-installation-and-interaction)
+  - [Part II: Installation and Configuration](part-ii-installation-and-configuration)
     - [Installation](#installation)
     - [Configuration files and directories](#configuration-files-and-directories)
       - [File format](#file-format)
@@ -31,24 +35,28 @@ Additionally, NFT guides with an examples can be found in [Useful links](#useful
 
 ## Overview
 
-When managing my network I come across the need to restrict traffic to a given domain name list.
+When managing my network I come across the need to restrict traffic to a given domain name list. 
 Sounds easy task, just read the list, resolve names and load IPs to a firewall.
-It started with a simple Bash script, once when it has been developed, I got other feature. I could keep domain list in a separated file. 'structure' (firewall configuration) now has been separated from data (domain names).
+It started with a simple `Bash` script. Once when it has been developed, I gained other feature: I could keep domain list in a separated file. 
 
-The firewall is NFT, its `C structure` alike configuration ([look bellow 🠋🠋](#quick-introduction)) that I really like now could be extended by text `one domain per line` format files holding e.g. blacklisted domain names.
-My script was reading the list, resolving names and passing this information into proper
-place in NFT.
+'structure' (firewall configuration) now has been separated from data (domain names).
+
+The firewall is NFT, its `C structure` alike configuration ([look bellow 🠋🠋](#quick-introduction)) now has been extended by text `one domain per line` format files holding e.g. blacklisted domain names.
+My script was reading the list, resolving names and passing this information into proper place in NFT.
 
 Once there has been means to read domain names, next step seem to be a possibility to load IP addresses, and why not mac addresses?
 So the program become capable of loading `network resources`, to indicate where within NFT configuration given
 resource set should be added I defined keyword `@set`. A bit later come an idea for an `@include` keyword (for including other files) and `@onpanic` for defining policy in the case of network 'emergency'.
 
-NFT by design provides sophisticated functions such as [timeouts](https://wiki.nftables.org/wiki-nftables/index.php/Element_timeouts), [intervals](https://wiki.nftables.org/wiki-nftables/index.php/Intervals), different data types. Additionally, IPs resolved from DNS might change over time. Domain name lists (especially blacklists) do change also, etc. One of the 'musts' for a well-made software is a capability to reload configuration keeping in mind all these sophisticated functions of NFT. Thus, the program requirements has grow comparing original 'read list -> resolve names -> load firewall' concept.
+NFT by design provides sophisticated functions such as [timeouts](https://wiki.nftables.org/wiki-nftables/index.php/Element_timeouts), [intervals](https://wiki.nftables.org/wiki-nftables/index.php/Intervals), 
+different data types. Additionally, IPs resolved from DNS might change over time. Domain name lists (especially blacklists) do change also, etc. One of the 'musts' for a well-made software is a capability to reload configuration keeping in mind all these sophisticated functions of NFT. 
+Thus, the program requirements has grow comparing original 'read list -> resolve names -> load firewall' concept.
 
-NFT comes with Python bindings, it hase become clear that to continue Bash must be dropped in favor of Python. But in fact, I keep two versions, Bash `NFT Helper Lite` and Pythons `NFT Helper`.
+`NFT` comes with `Python` bindings, it hase become clear that to continue `Bash` must be dropped in favor of `Python`. But in fact, I keep two versions, Bash `NFT List Lite` and Python's `NFT List`.
 
 ## Quick introduction
-Nftables firewall is configured via `nft` user-space utility, that replaces an old `iptables` but also `ip6tables`, `arptables` and `ebtables` commands. It comes with a new `C structure` alike configuration file format. See simple example bellow:
+Nftables firewall is configured via `nft` user-space utility, that replaces an old `iptables` but also `ip6tables`, `arptables` and `ebtables` commands. 
+It comes with a new `C structure` alike configuration file format. See simple example bellow:
 ```
 #!/sbin/nft -f
 
@@ -71,7 +79,7 @@ table inet my_table {
     chain my_input {
         type filter hook input priority 0; policy drop;
 
-        # Input Pert I: set firewall to let for an outgoing connections,
+        # Input Part I: set firewall to let for an outgoing connections,
         # while dropping incoming traffic
         iifname lo accept \
             comment "Accept any localhost traffic"
@@ -88,8 +96,8 @@ table inet my_table {
     }
 }
 ```
-This is a very basic firewall configuration. It opens host (`Input Pert I`) for outgoing connections while dropping traffic originated from outside.
-But as an exception (`Input Pert II`) chosen `allowed_hosts` hosts can be allowed for connecting host at `allowed_tcp_ports`.
+This is a very basic firewall configuration. It opens host (`Input Part I`) for outgoing connections while dropping traffic originated from outside.
+But as an exception (`Input Part II`) chosen `allowed_hosts` hosts can be allowed for connecting host at `allowed_tcp_ports`.
 
 Once when NFT with this configuration is loaded (note `flush ruleset` - that purges all previous settings) `allowed_hosts` is empty.
 Therefore, no other host is allowed to let in, access can be open from command line:
@@ -101,15 +109,15 @@ or `NFT List` can do this for you. Define file such as:
 # /etc/nftdef/allowed_hosts.list
 # host that are allowed for connecting this box
 
-@allowed_hosts # load bellow addresses into 'allowed_hosts' set
+@set inet my_table allowed_hosts # load bellow addresses into 'allowed_hosts' set
 172.22.0.2 # Peer 2
 ```
 
 and load:
 ```bash
-nftlist.sh sync /etc/nftdef/allowed_hosts.list
+nftlist.sh update /etc/nftdef/allowed_hosts.list
 ```
-`NFT Helper` comes with OpenRC init script to load settings a boot time, and cron script for periodic reloads. More in ...
+`NFT List` comes with OpenRC init script to load settings a boot time, and cron script for periodic reloads. More in [Part II: Installation and Configuration](part-ii-installation-and-configuration).
 
 ## Project's scope
 
@@ -117,10 +125,10 @@ The aim of the project is to complement Nftables user-space tools by:
 1. providing domain-based filtering
 2. letting on keeping data in a separated from NFT configuration files
 
-The key features of `NFT Helper` are:
+The key features of `NFT List` are:
 
-1. Domain names are resolved by `NFT Helper` using CloudFlare `1.1.1.1` DOH (DNS over HTTP(s)) server. This is actually the most secure way to query domain names.
-2. `NFT Helper` handles following network resources:
+1. Domain names are resolved by `NFT List` using CloudFlare `1.1.1.1` DOH (DNS over HTTP(s)) server. This is actually the most secure way to query domain names.
+2. `NFT List` handles following network resources:
     * Domain names (example.com) and:
     * IPv4 addresses (10.0.23.3)
     * IPV4 networks (103.31.4.0/22)
@@ -129,17 +137,19 @@ The key features of `NFT Helper` are:
     * Mac addresses (02:42:ac:16:00:02)
 
     These data is read from [configuration files](#configuration) and loaded to appropriate [NFT set](#nft-sets).
-3. IPs pointed by DNS can change over time, thus `NFT Helper` runs periodic checks to keep firewall coherent with an actual DNS state.
+3. IPs pointed by DNS can change over time, thus `NFT List` runs periodic checks to keep firewall coherent with an actual DNS state.
 
-Please note that domain based filtering is not a perfect one. Usually multiple domain names share common IP's. Encrypted connections (that protect privacy) prevent firewall from inspecting network package for source/destination check. Therefore, some extra names can 'sneak' under the radar. However, this issue is negligible comparing to benefits coming from restricted firewall rule set.
+Please note that domain based filtering is not a perfect one. Usually multiple domain names share common IP's. 
+Encrypted connections (that protect privacy) prevent firewall from inspecting network package for source/destination check. 
+Therefore, some extra names can 'sneak' under the radar. However, this issue is negligible comparing to benefits coming from restricted firewall rule set.
 
 ## HowTo Use
-`NFT Helper` is interacting with a firewall that is a vital part of a network security.
-Therefore, this guide is not only touching aspects of `NFT Helper` but primally `Nftables` to present necessary details for user to be aware of what is being done.
+`NFT List` is interacting with a firewall that is a vital part of a network security.
+Therefore, this guide is not only touching aspects of `NFT List` but primally `Nftables` to present necessary details for user to be aware of what is being done.
 
 
-### Part I: Interaction
-This part explains an interaction of `NFT Helper` with Nftables user-space tools.
+### Part I: Firewall
+This part explains an interaction of `NFT List` with Nftables user-space tools (firewall).
 
 #### NFT sets
 
@@ -157,11 +167,13 @@ table inet user_defined_table_name {
 }
 ```
 
-Sets can be anonymous, or named. Above example defines named (`usedr_defined_set_name`) set. To have `NFT Helper` to feed sets with a data it must be obviously named.
+Sets can be anonymous, or named. Above example defines named (`usedr_defined_set_name`) set. 
+To have `NFT List` to feed sets with a data it must be obviously named.
 
-NFT defines various types of elements, for instance *ipv4_addr* is for keeping IPv4 addresses, *ether_addr* for mac addresses while *ifname* is to group network interfaces (e.g. enp7s0, br0).
+NFT defines various types of elements, for instance *ipv4_addr* is for keeping IPv4 addresses, 
+*ether_addr* for mac addresses while *ifname* is to group network interfaces (e.g. enp7s0, br0).
 
-`NFT Helper` operates on a Sets of the following types:
+`NFT List` operates on a Sets of the following types:
 * *ipv4_addr* for IPv4,
 * *ipv6_addr* for IPv6 elements
 * *ether_addr* for mac addresses.
@@ -170,28 +182,28 @@ Nftables also provides `typeof` keyword that as documentation states:
 
 > allows you to use a high level expression, then let nftables resolve the base type for you
 
-`NFT Helper` can operate **only** on sets declared with `type`. Trial of loading data into `typeof`, or `type` but of not supported type will fail.
+`NFT List` can operate **only** on sets declared with `type`. Trial of loading data into `typeof`, 
+or `type` but of not supported type will fail.
 
-Type of set elements complemented by flag that specifies more precisely behaviour and format of an elements:
+Set can be complemented by flags that specifies more precisely behaviour and format of an elements:
 * *timeout* - specifies timeout when a set element is set for expiration, note that various elements within one set can have a different timeouts
 * *constant* - set content can not be changed once when it has been bound to a rule
 * *interval* - set elements can be intervals, that is IP addresses with network prefixes or address ranges in format: *<first addr>-<last addr>*, e.g.
 `192.168.100-192.168.199`
 
-`NFT Helper` validates these flags and acts as follows:
-* *timeout* - `NFT Helper` acts as follows:
-    1. loads resources to a such set setting up a given or default timeout. Default timeout is `25 h 42 sec.`
+`NFT List` validates these flags and acts as follows:
+* *timeout* - `NFT List` acts as follows:
+    1. loads resources to such a set setting up a given or default timeout. Default timeout is `25 h 42 sec.`
     2. does not do `sync` operation, instead it re-loads NFT with a new list resulting in extending expiration time of
        already existing elements, adding new elements, and letting for experiation in Firewall that elements that are
        missing on e new list.
-* *constant* - `NFT Helper` acts normally if set is not bound with rule.
-* *interval* - `NFT Helper` extends accepted format by network prefixes and address ranges.
+* *constant* - `NFT List` acts normally if set is not bound with rule.
+* *interval* - `NFT List` extends accepted format by network prefixes and address ranges.
 
 
-`auto-merge` option of `NFT Set` combines a set elements into intervals, this enebles auto-packing addresses into groups. For instance
+`auto-merge` option of `NFT Set` combines a set elements into intervals, this enables auto-packing addresses into groups. For instance
 adding `10.2.0.0/16` and `11.3.0.0/16` merges into one network: `10.2.0.0/15`. 
-With `auto-merge` defined the result of `nftlist update` might not only be inserttions and removals, 
-but also `merge`, `split` actions.
+With `auto-merge` defined the result of `nftlist update` might not only be insertions and removals, but also `merge`, `split` actions.
 
 
 In NFT there is no type `inet_addr` that would match both types `ipv4_addr` and `ipv6_addr`. Therefore, one set can not
@@ -206,11 +218,13 @@ If you inspect an example from [Quick introduction](#quick-introduction) there a
 - where chains and finally rules are defined
 - rules refer to set to apply a certain policy for a given network resources
 
-Sets are a `meeting` point. `NFT helper` fills in Set with a desired IP/mac addresses. NFT helper does not create, modify or delete chains, rules or other 'structural' firewall settings. It only operates within sets, 'NFT helper' can only:
-* add, or
+Sets are a `meeting` point. `NFT List` fills in Set with a desired IP/mac addresses. 
+`NFT List` does not create, modify or delete chains, rules or other 'structural' firewall settings. 
+It only operates within sets, 'NFT List' can only:
+* add, or 
 * remove **elements** of an indicated NFT sets.
 
-It's administrator's job to define a firewall configuration. NFT Helper is a tool designed for filling and keeping set elements up to date.
+It's administrator's job to define a firewall configuration. `NFT List` is a tool designed for filling and keeping set elements up to date.
 
 
 ### Part II: Installation and Configuration
@@ -242,7 +256,7 @@ Just after installation as configuration is empty nothing will happen.
 Refer to your Linux distribution guide to learn how to handle NFT configuration under your system.
 Usually (Debian, Alphine) main configuration file is `/etc/nftables.nft` while directory `/etc/nftables.d/` is used to drop in additional settings.
 
-`Nft Helper` uses `/etc/nftlists/` as a storage place for network resources lists.
+`Nft List` uses `/etc/nftlists/` as a storage for network resource lists.
 
 It holds `available` and `enabled` directories:
 ```bash
@@ -258,11 +272,12 @@ It holds `available` and `enabled` directories:
 
 3 directories, 4 files
 ```
-`NFT Helper` will load files ended with `.list` extension that are located in `/etc/nftlists/enabled/`.
+`nftlist` by default, if no configuration file or directory is passed, loads all files ended with `.list` extension that are located 
+in `/etc/nftlists/enabled/` (no recursive search).
 
 ##### File format
 
-The file format expected by `NFT Helper` is a text file holding domain/address list, such as:
+The file format expected by `NFT List` is a text file holding domain/address list, such as:
 ```
 # /etc/nftlists/avaliable/blacklisted_domain.list
 
@@ -472,7 +487,7 @@ In tha case of troubles tools such as tcpdump and WireShark come in handy.
 
 # Summary
 
-NFT Helper is useful with containerization/virtualisation technics where running VMs can be limited to exact network resources they need. I developed it to have a lite, robust and straight-forward solution for various  NFT firewall cases.
+NFT Helper is useful with containerization/virtualization technics where running VMs can be limited to exact network resources they need. I developed it to have a lite, robust and straight-forward solution for various  NFT firewall cases.
 
 # Useful links
 
