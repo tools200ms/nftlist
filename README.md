@@ -157,7 +157,7 @@ NFT comes with [NFT sets](https://wiki.nftables.org/wiki-nftables/index.php/Sets
 Example definition of NFT set looks as follows:
 ```
 table inet user_defined_table_name {
-       set usedr_defined_set_name {
+       set user_defined_set_name {
                type ipv4_addr;
                flags timeout, interval;
                auto-merge;
@@ -167,7 +167,7 @@ table inet user_defined_table_name {
 }
 ```
 
-Sets can be anonymous, or named. Above example defines named (`usedr_defined_set_name`) set. 
+Sets can be anonymous, or named. Above example defines named (`user_defined_set_name`) set. 
 To have `NFT List` to feed sets with a data it must be obviously named.
 
 NFT defines various types of elements, for instance *ipv4_addr* is for keeping IPv4 addresses, 
