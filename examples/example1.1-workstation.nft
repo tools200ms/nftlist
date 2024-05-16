@@ -3,11 +3,11 @@
 # very simple configuration
 
 # place correct interface
-define LAN_NIC = "eth0"
+define EXT_NIC = eth0
 
 flush ruleset
 
-table inet my_table {
+table inet work_station {
 
     set allowed_hosts {
         type ipv4_addr;
@@ -30,9 +30,9 @@ table inet my_table {
         ct state { established, related } accept \
             comment "Accept traffic originated from us"
 
-        iifname $LAN_NIC tcp dport @allowed_tcp_ports \
+        iifname $EXT_NIC tcp dport @allowed_tcp_ports \
                          ip  saddr @allowed_hosts counter ct state new accept \
-            comment "Accept connections for chosen hosts to selected ports"
+            comment "Accept connections for chosen IPs to selected ports"
     }
 
     chain my_forward {

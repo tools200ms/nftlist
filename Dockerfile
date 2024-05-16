@@ -20,7 +20,7 @@ RUN mkdir -p /run/openrc && touch /run/openrc/softlevel
 COPY ./src/init.d/nftlist /etc/init.d/
 COPY ./src/cron/nftlist.daily.sh /etc/periodic/daily/
 
-COPY ./src/nftlist.sh /usr/local/bin/
+COPY ./src/nftlist-little.sh /usr/local/bin/
 COPY ./src/nftlist.py /usr/local/bin/
 
 # NFT Examples:

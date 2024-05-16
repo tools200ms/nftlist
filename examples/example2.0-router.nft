@@ -1,15 +1,25 @@
 #!/sbin/nft -f
 
+# "sysctl net.ipv4.ip_forward" must ge set to "1",
+# in not configure "/etc/sysctl.conf" or
+# drop/update aproperiate file in "/etc/sysctl.d/"
+# Desired line that enables IPv4 forwarding is:
+#     net.ipv4.ip_forward = 1
+# (as you might guess)
+
 # place correct interfaces
 
-define LAN_NET = "10.42.0.0/24"
-define LAN_NIC = "eth0"
+define LAN_NET = 10.42.0.0/24
+define LAN_NIC = eth0
+
+flush ruleset
 
 table inet router {
 
     set allowed_lan_hosts {
         type ipv4_addr;
         flags timeout, interval;
+        elements = { $LAN_NET }
     }
 
     set allowed_lan_tcp_ports {
@@ -21,6 +31,7 @@ table inet router {
     set allowed_ext_ip4hosts {
         type ipv4_addr;
         flags timeout, interval;
+        elements = { 10.0.0.0/16 }
     }
 
     set allowed_ext_ip6hosts {
@@ -31,7 +42,7 @@ table inet router {
     set allowed_ext_tcp_ports {
         type inet_service;
         flags interval, constant;
-        elements = { ssh, http, https, http-alt }
+        elements = { ssh, http, https, http-alt, 5900-5932 }
     }
 
     chain input {
@@ -44,30 +55,32 @@ table inet router {
         ct state { established, related } accept \
             comment "Accept traffic originated from us"
 
-        iifname ! $LAN_NIC tcp dport @allowed_ext_ports \
+        iifname != $LAN_NIC tcp dport @allowed_ext_tcp_ports \
                            ip  saddr @allowed_ext_ip4hosts counter ct state new accept \
             comment "Accept external connections for chosen IPv4 hosts to selected ports"
 
-        iifname ! $LAN_NIC tcp dport @allowed_ext_ports \
-                           ip  saddr @allowed_ext_ip6hosts counter ct state new accept \
+        iifname != $LAN_NIC tcp dport @allowed_ext_tcp_ports \
+                           ip6  saddr @allowed_ext_ip6hosts counter ct state new accept \
             comment "Accept external connections for chosen IPv6 hosts to selected ports"
 
-        iifname $LAN_NIC tcp dport @allowed_lan_ports \
-                         ip  saddr @allowed_lan_hosts counter ct state new accept \
-            comment "Accept connections for chosen LAN hosts to selected ports"
+        iifname $LAN_NIC tcp dport @allowed_lan_tcp_ports \
+                         ip  saddr $LAN_NET counter ct state new accept \
+            comment "Accept connections for LAN hosts to allowed ports"
+
+        iifname $LAN_NIC ip protocol icmp icmp \
+                type { echo-reply, destination-unreachable, echo-request, time-exceeded, parameter-problem } accept \
+                comment "Accept ICMP"
     }
 
     chain postrouting {
         type nat hook postrouting priority srcnat; policy accept;
-        ip saddr $LAN_NET ip daddr != $LAN_NET masquerade
+        iifname $LAN_NIC oifname != $LAN_NIC masquerade
     }
 
     chain forward {
-        type filter hook forward priority filter; policy reject;
+        type filter hook forward priority filter; policy drop;
 
         ip daddr $LAN_NET oifname $LAN_NIC ct state { established, related } accept
-        ip saddr $LAN_NET iifname $LAN_NIC accept
-
-        iifname $LAN_NIC oifname $LAN_NIC accept
+        ip saddr $LAN_NET iifname $LAN_NIC ct state { new } accept
     }
 }

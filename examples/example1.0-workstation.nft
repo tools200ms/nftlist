@@ -3,7 +3,7 @@
 # very simple workstation configuration
 flush ruleset
 
-table inet my_table {
+table inet work_station {
 
     set allowed_hosts {
         type ipv4_addr;
