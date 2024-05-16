@@ -1,9 +1,9 @@
 #!/sbin/nft -f
 
-# very simple configuration
+# configurable configuration
 
 # place correct interface
-define EXT_NIC = eth0
+define NIC = eth0
 
 flush ruleset
 
@@ -30,17 +30,17 @@ table inet work_station {
         ct state { established, related } accept \
             comment "Accept traffic originated from us"
 
-        iifname $EXT_NIC tcp dport @allowed_tcp_ports \
+        iifname $NIC tcp dport @allowed_tcp_ports \
                          ip  saddr @allowed_hosts counter ct state new accept \
             comment "Accept connections for chosen IPs to selected ports"
     }
 
-    chain my_forward {
+    chain forward {
 		type filter hook forward priority filter; policy drop;
-		# Drop everything forwarded to us. We do not forward. That is routers job
+		# Ensure that machine is not forwarding any IP traffic
 	}
 
-	chain my_output {
+	chain output {
 		type filter hook output priority filter; policy accept;
 		# Accept every outbound connection
 	}

@@ -1,0 +1,6 @@
+
+# IPv6 local addresses:
+fc00::/7
+
+# IPv6 link-local addresses:
+fe80::/64
