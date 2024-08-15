@@ -21,7 +21,7 @@ written in `bash` is pretty well tested and can be used for everyday purposes. I
   - [Part I: Firewall](#part-i-firewall)
     - [NFT sets](#nft-sets)
     - [NFT Structure](#nft-structure)
-  - [Part II: Installation and Configuration](part-ii-installation-and-configuration)
+  - [Part II: Installation and Configuration](#part-ii-installation-and-configuration)
     - [Installation](#installation)
     - [Configuration files and directories](#configuration-files-and-directories)
       - [File format](#file-format)
@@ -117,7 +117,7 @@ and load:
 ```bash
 nftlist.sh update /etc/nftdef/allowed_hosts.list
 ```
-`NFT List` comes with OpenRC init script to load settings a boot time, and cron script for periodic reloads. More in [Part II: Installation and Configuration](part-ii-installation-and-configuration).
+`NFT List` comes with OpenRC init script to load settings a boot time, and cron script for periodic reloads. More in [Part II: Installation and Configuration](#part-ii-installation-and-configuration).
 
 ## Project's scope
 
@@ -136,7 +136,7 @@ The key features of `NFT List` are:
     * IPv6 networks (2001:db8:1234::/48)
     * Mac addresses (02:42:ac:16:00:02)
 
-    These data is read from [configuration files](#configuration) and loaded to appropriate [NFT set](#nft-sets).
+    These data is read from [configuration files](#configuration-files-and-directories) and loaded to appropriate [NFT set](#nft-sets).
 3. IPs pointed by DNS can change over time, thus `NFT List` runs periodic checks to keep firewall coherent with an actual DNS state.
 
 Please note that domain based filtering is not a perfect one. Usually multiple domain names share common IP's. 
@@ -192,11 +192,7 @@ Set can be complemented by flags that specifies more precisely behaviour and for
 `192.168.100-192.168.199`
 
 `NFT List` validates these flags and acts as follows:
-* *timeout* - `NFT List` acts as follows:
-    1. loads resources to such a set setting up a given or default timeout. Default timeout is `25 h 42 sec.`
-    2. does not do `sync` operation, instead it re-loads NFT with a new list resulting in extending expiration time of
-       already existing elements, adding new elements, and letting for experiation in Firewall that elements that are
-       missing on e new list.
+* *timeout* - `NFT List` resolves IP addresses and adds them to 'timeout set' setting up a default timeout that is 3 days. If the list is refreshed, timeout is updated. If given domain name does not resolve to a certain IP anymore, it will simpli expire and eventually disappear from the set.
 * *constant* - `NFT List` acts normally if set is not bound with rule.
 * *interval* - `NFT List` extends accepted format by network prefixes and address ranges.
 
