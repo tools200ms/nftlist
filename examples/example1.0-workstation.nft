@@ -1,6 +1,7 @@
 #!/sbin/nft -f
 
-# simple, strict firewall configuration
+# Simple, strict firewall setup
+
 flush ruleset
 
 table inet work_station {

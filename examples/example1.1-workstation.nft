@@ -1,8 +1,8 @@
 #!/sbin/nft -f
 
-# configurable configuration
+# Configurable firewall setup
 
-# place correct interface
+# Set interface name that corresponds to your system settings:
 define NIC = eth0
 
 flush ruleset
@@ -16,7 +16,7 @@ table inet work_station {
 
     set allowed_tcp_ports {
         type inet_service;
-        flags interval, constant;
+        flags constant, interval;
         elements = { ssh, http, https, http-alt, 3000-5000 }
     }
 

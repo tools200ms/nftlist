@@ -1,6 +1,6 @@
 #!/sbin/nft -f
 
-# simple, strict firewall configuration:
+# Simple, strict firewall and router setup
 
 # NOTE: "sysctl net.ipv4.ip_forward" must be set to "1",
 #   in not configure "/etc/sysctl.conf" or
@@ -11,10 +11,13 @@
 
 # We assume that in the system there are two (except lo)
 # interfaces, one "$LAN_NIC" that is the one serving local network,
-# end another one "!= $LAN_NIC" that is an external interface
-# This configuration is ment for very simple router.
+# and another one "!= $LAN_NIC" that is an external interface.
+# This configuration is a very simple router example.
 define LAN_NET = 10.42.0.0/24
 define LAN_NIC = eth0
+
+# It's typical for LAN routers to provide DHCP and DNS services,
+# thus ports 67(bootps) and 53(doamin) are opened in input chain.
 
 flush ruleset
 
@@ -29,9 +32,18 @@ table inet router {
         ct state { established, related } accept \
             comment "Accept traffic originated from us"
 
+        iifname $LAN_NIC th dport domain \
+            ct state new accept \
+            comment "Allow on serving DNS requests"
+
         iifname $LAN_NIC ip protocol icmp icmp \
                 type { echo-reply, destination-unreachable, echo-request, time-exceeded, parameter-problem } accept \
                 comment "Accept ICMP"
+
+        # Router usually serves as DHCP server, open por 67 for this purpose
+        iifname $LAN_NIC udp dport bootps \
+            ct state new counter accept \
+            comment "Allow on DHCP discovery"
     }
 
     chain postrouting {

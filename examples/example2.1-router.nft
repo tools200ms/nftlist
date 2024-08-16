@@ -1,6 +1,6 @@
 #!/sbin/nft -f
 
-# configurable configuration
+# Configurable firewall and router setup
 
 # NOTE: "sysctl net.ipv4.ip_forward" must be set to "1",
 #   in not configure "/etc/sysctl.conf" or
@@ -9,8 +9,15 @@
 #     net.ipv4.ip_forward = 1
 #   (as you might guess)
 
+# We assume that in the system there are two (except lo)
+# interfaces, one "$LAN_NIC" that is the one serving local network,
+# and another one "!= $LAN_NIC" that is an external interface.
+# This configuration is a very simple router example.
 define LAN_NET = 10.42.0.0/24
 define LAN_NIC = eth0
+
+# It's typical for LAN routers to provide DHCP and DNS services,
+# thus ports 67(bootps) and 53(doamin) are opened in input chain.
 
 flush ruleset
 
@@ -24,14 +31,13 @@ table inet router {
 
     set allowed_lan_tcp_ports {
         type inet_service;
-        flags interval, constant;
-        elements = { ssh, http, https, http-alt }
+        flags constant, interval;
+        elements = { ssh, http, https, http-alt, 5900-5932 }
     }
 
     set allowed_ext_ip4hosts {
         type ipv4_addr;
         flags timeout, interval;
-        elements = { 10.0.0.0/16 }
     }
 
     set allowed_ext_ip6hosts {
@@ -42,7 +48,7 @@ table inet router {
     set allowed_ext_tcp_ports {
         type inet_service;
         flags interval, constant;
-        elements = { ssh, http, https, http-alt, 5900-5932 }
+        elements = { ssh, http, https, http-alt }
     }
 
     chain input {
@@ -67,13 +73,21 @@ table inet router {
                          ip  saddr $LAN_NET counter ct state new accept \
             comment "Accept connections for LAN hosts to allowed ports"
 
+        iifname $LAN_NIC th dport domain \
+            ct state new accept \
+            comment "Allow on serving DNS requests"
+
         iifname $LAN_NIC ip protocol icmp icmp \
                 type { echo-reply, destination-unreachable, echo-request, time-exceeded, parameter-problem } accept \
                 comment "Accept ICMP"
+
+        # Router usually serves as DHCP server, open por 67 for this purpose
+        iifname $LAN_NIC udp dport bootps ct state new counter accept \
+            comment "Allow on DHCP discovery"
     }
 
     chain prerouting {
-        type nat hook prerouting priority srcnat; policy accept;
+        type nat hook prerouting priority 0; policy accept;
     }
 
     chain postrouting {
