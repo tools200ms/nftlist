@@ -112,9 +112,10 @@ class InclDirPath:
         return os.path.join(self.__path, file_name)
 
 class NFTListDirective:
-    pass
+    def update( self ):
+        pass
 
-class SetDirective(NFTListDirective):
+class SetDirective( NFTListDirective ):
     def __init__(self, family, tablen, setn):
         errors = []
 
@@ -149,11 +150,11 @@ class SetDirective(NFTListDirective):
     def merge(self, perv_set):
         pass
 
-class InclDirective(NFTListDirective):
+class InclDirective( NFTListDirective ):
     def __init__(self, file_name):
         self.__file_name = normpath(file_name)
 
-class OnPanicDirective(NFTListDirective):
+class OnPanicDirective( NFTListDirective ):
     def __init__(self):
         pass
 
@@ -288,39 +289,34 @@ $(basename $0) --version | -v\
             print(f"NFT List, version: {Program.Version()}\
 Created by {Program.License()}, released with {Program.License()}")
 
-def parse_line(line: str) -> None:
-    line = line.strip()
-
-    if not line:
-        return
+# Meaningfull (not empty) line:
+def parse_line(mean_line: str) -> None:
 
     # index of a comment mark '#'
-    c_idx = line.find('#')
+    c_idx = mean_line.find('#')
     if c_idx != -1:
-        # cut comments
-        line = line[0:c_idx].strip()
-        if not line:
-            return
+        # cut end comment
+        mean_line = mean_line[ 0 : c_idx ].strip()
 
     if line[0] == '@':
         # directive has been encounted
         direct = line.split()
         match direct[0]:
             case '@set':
-                if len(direct) != 4:
+                if len( direct ) != 4:
                     raise ConfError('@set directive requiers 4 arguments')
-                return SetDirective(direct[1], direct[2], direct[3])
+                return SetDirective( direct[1], direct[2], direct[3] )
 
             case '@include':
-                if len(direct) != 2:
+                if len( direct ) != 2:
                     raise ConfError('@ include directive requiers 1 argument')
-                return InclDirective(direct[1])
+                return InclDirective( direct[1] )
             case '@query':
                 raise Exception('Not implemented')
             case '@onpanic':
-                if len(direct) != 2:
+                if len( direct ) != 2:
                     raise ConfError('@onpanic directive requiers 1 argument')
-                return OnPanicDirective(direct[1])
+                return OnPanicDirective( direct[1] )
 
     # clasify to what data set resource belongs to
     
@@ -399,6 +395,9 @@ conf_files.sort()
 LINE_LEN_LIMIT = 2048
 LINE_CNT_LIMIT = 1024*1024
 
+# NFTListDirective
+context = None
+
 set_direct = set_arg.getAssocObj()
 # parse files
 for cf in conf_files:
@@ -410,9 +409,17 @@ for cf in conf_files:
             line_no = 0
             while line_no < LINE_CNT_LIMIT:
                 line_no += 1
-                line = cf.readline(LINE_LEN_LIMIT)
+                line = cf.readline(LINE_LEN_LIMIT).strip()
+                lines = cf.readlines( 4096 )
+
+                for line in lines:
+                    pass
+
+                map( None, lines )
+
                 if not line:
                     break
+
                 parse_line(line)
 
             if line_no == LINE_CNT_LIMIT:
