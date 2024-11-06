@@ -10,7 +10,8 @@ RUN dev2_addtools.sh openrc bash nftables jq \
 
 
 # install network software to experiment with:
-RUN dev2_addtools.sh openssh-client openssh-server scanssh \
+RUN dev2_addtools.sh conntrack-tools \
+                     openssh-client openssh-server scanssh \
                      lighttpd \
                      inetutils-telnet
 

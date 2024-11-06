@@ -1,21 +1,23 @@
 
 # NFT List
-Supplements Nftables with a separate configuration dedicated for network resources (including domain names).
 
+Script for restricting network resource access in Nftables. 
+It can be used to restrict access by: 
+- IP address
+- Mac address
+- Domain name
+
+`NFT List` configuration files are intuitive and don't mix up with NFT configuration.
 
 **NOTE:**
 Usage of this tool requires knowledge regarding Linux NFT firewall framework.
 For more information check out [NFT Quick reference in 10 minutes](https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes).
-Additionally, NFT guides with an examples can be found in [Useful links](#useful-links) section at the bottom of this page.
-
-**NOTE 2:**
-Python `nftlist.py` is under early development, at this state it is not yet ready. However, `nftlist.py` prototype that has been originally 
-written in `bash` is pretty well tested and can be used for everyday purposes. It is called `nftlist-little.sh`. Thus, please use `nftlist-little.sh`.
+Additional NFT guides and an examples can be found in [Useful links](#useful-links) section at the bottom of this page.
 
 ## Table of contents
 
 - [Overview](#overview)
-- [Quick introduction](#quick-introduction)
+- [NFT in short](#nft-in-short)
 - [Project's scope](#projects-scope)
 - [HowTo Use](#howto-use)
   - [Part I: Firewall](#part-i-firewall)
@@ -35,28 +37,20 @@ written in `bash` is pretty well tested and can be used for everyday purposes. I
 
 ## Overview
 
-When managing my network I come across the need to restrict traffic to a given domain name list. 
-Sounds easy task, just read the list, resolve names and load IPs to a firewall.
-It started with a simple `Bash` script. Once when it has been developed, I gained other feature: I could keep domain list in a separated file. 
+Modern Linux systems use NFT firewall - successor of Iptables. It comes with a new `C structure` alike configuration format ([look: NFT in short 🠋](#nft-in-short)).
 
-'structure' (firewall configuration) now has been separated from data (domain names).
+Firewall is a crucial security element, thus its configuration should be kept straightforward.
 
-The firewall is NFT, its `C structure` alike configuration ([look bellow 🠋🠋](#quick-introduction)) now has been extended by text `one domain per line` format files holding e.g. blacklisted domain names.
-My script was reading the list, resolving names and passing this information into proper place in NFT.
+Firewall configuration that is in `/etc/nftables.*` can be thought of as a 'structure'.
 
-Once there has been means to read domain names, next step seem to be a possibility to load IP addresses, and why not mac addresses?
-So the program become capable of loading `network resources`, to indicate where within NFT configuration given
-resource set should be added I defined keyword `@set`. A bit later come an idea for an `@include` keyword (for including other files) and `@onpanic` for defining policy in the case of network 'emergency'.
+`NFT List` in other hand uses configuration located under `/etc/nftlists/`. It applies "available-enabled pattern" ([look: Configuration files and directories 🠋🠋🠋](#configuration-files-and-directories)) well known from Apache or Nginx.
+`NFT List` manages resources, as so its configuration can be thought of as a 'data'.
 
-NFT by design provides sophisticated functions such as [timeouts](https://wiki.nftables.org/wiki-nftables/index.php/Element_timeouts), [intervals](https://wiki.nftables.org/wiki-nftables/index.php/Intervals), 
-different data types. Additionally, IPs resolved from DNS might change over time. Domain name lists (especially blacklists) do change also, etc. One of the 'musts' for a well-made software is a capability to reload configuration keeping in mind all these sophisticated functions of NFT. 
-Thus, the program requirements has grow comparing original 'read list -> resolve names -> load firewall' concept.
+The idea is to avoid mixing NFT configuration with resource lists. Instead, keep them separate, similar to good program design where algorithms and data remain distinct and are not intertwined.
 
-`NFT` comes with `Python` bindings, it hase become clear that to continue `Bash` must be dropped in favor of `Python`. But in fact, I keep two versions, Bash `NFT List Lite` and Python's `NFT List`.
-
-## Quick introduction
+## NFT in short
 Nftables firewall is configured via `nft` user-space utility, that replaces an old `iptables` but also `ip6tables`, `arptables` and `ebtables` commands. 
-It comes with a new `C structure` alike configuration file format. See simple example bellow:
+It comes with a new `C structure` alike configuration file format. See simple example below:
 ```
 #!/sbin/nft -f
 
@@ -65,6 +59,8 @@ flush ruleset
 
 table inet my_table {
 
+    # 'set' definitions: 
+    
     set allowed_hosts {
         type ipv4_addr;
         flags timeout, interval;
@@ -79,8 +75,9 @@ table inet my_table {
     chain my_input {
         type filter hook input priority 0; policy drop;
 
-        # Input Part I: set firewall to let for an outgoing connections,
+        # Input Part I: set firewall to let for an outgoing connections, 
         # while dropping incoming traffic
+        
         iifname lo accept \
             comment "Accept any localhost traffic"
         ct state invalid drop \
@@ -90,13 +87,30 @@ table inet my_table {
 
         # Input Part II: do an exception for incoming traffic for
         # `@allowed_hosts` to `allowed_tcp_ports`
+        
         tcp dport @allowed_tcp_ports \
-        ip  saddr @allowed_hosts counter ct state new accept \
+        ip  saddr @allowed_hosts ct state new accept \
             comment "Accept connections for chosen hosts to selected ports"
     }
 }
 ```
-This is a very basic firewall configuration. It opens host (`Input Part I`) for outgoing connections while dropping traffic originated from outside.
+The top structure in firewalls is table. `inet` in this case indicates that IPv4 and IPv6 package will traverse trought chains defined within defined table (see [Nftables families](https://wiki.nftables.org/wiki-nftables/index.php/Nftables_families)).
+
+**The anchors that binds `NFT List` with `Nftables` are the [Nft sets](https://wiki.nftables.org/wiki-nftables/index.php/Sets).**
+
+Nft sets are used to define resource list to be applied later in a chain rules.
+Normally, `set` entity would hold resource type, and actual data (elements). For instance: 
+```
+set allowed_hosts {
+        type ipv4_addr;
+        flags timeout, interval;
+        elements = { 192.168.1.4, 192.168.1.5 }
+    }
+```
+As putting 'element list' in configuration, especially for a long, changing lists introduces and risc to brak something in filtering logic.
+
+Chain `my_input` has a default policy drop, if no 
+`Input Part I`  for outgoing connections while dropping traffic originated from outside.
 But as an exception (`Input Part II`) chosen `allowed_hosts` hosts can be allowed for connecting host at `allowed_tcp_ports`.
 
 Once when NFT with this configuration is loaded (note `flush ruleset` - that purges all previous settings) `allowed_hosts` is empty.
@@ -481,9 +495,18 @@ NFT provides [counters](https://wiki.nftables.org/wiki-nftables/index.php/Counte
 traffic is passing through a certain firewall rule or hook.
 In tha case of troubles tools such as tcpdump and WireShark come in handy.
 
+# NFT advanced features
+
+NFT by design provides sophisticated functions such as [timeouts](https://wiki.nftables.org/wiki-nftables/index.php/Element_timeouts), [intervals](https://wiki.nftables.org/wiki-nftables/index.php/Intervals), 
+different data types. Additionally, IPs resolved from DNS might change over time. Domain name lists (especially blacklists) do change also, etc. One of the 'musts' for a well-made software is a capability to reload configuration keeping in mind all these sophisticated functions of NFT. 
+Thus, the program requirements has grow comparing original 'read list -> resolve names -> load firewall' concept.
+
+
 # Summary
 
-NFT Helper is useful with containerization/virtualization technics where running VMs can be limited to exact network resources they need. I developed it to have a lite, robust and straight-forward solution for various  NFT firewall cases.
+`NFT List` can be used in: 
+- virtualise environments to
+is useful with containerization/virtualization technics where running VMs can be limited to exact network resources they need. It has been developed as a lite, robust and straightforward solution for various firewall configuration cases.
 
 # Useful links
 
