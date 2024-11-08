@@ -1,13 +1,13 @@
 
 # NFT List
 
-Script for restricting network resource access in Nftables. 
-It can be used to restrict access by: 
+Tool developed to provide an elegant way for defining access/deny lists for Nftables (nft).
+Access/deny lists can be sets of: 
 - IP address
 - Mac address
-- Domain name
+- Domain names
 
-`NFT List` configuration files are intuitive and don't mix up with NFT configuration.
+`NFT List` uses intuitive configuration files that are separated from NFT configuration.
 
 **NOTE:**
 Usage of this tool requires knowledge regarding Linux NFT firewall framework.
@@ -41,10 +41,8 @@ Modern Linux systems use NFT firewall - successor of Iptables. It comes with a n
 
 Firewall is a crucial security element, thus its configuration should be kept straightforward.
 
-Firewall configuration that is in `/etc/nftables.*` can be thought of as a 'structure'.
-
-`NFT List` in other hand uses configuration located under `/etc/nftlists/`. It applies "available-enabled pattern" ([look: Configuration files and directories 🠋🠋🠋](#configuration-files-and-directories)) well known from Apache or Nginx.
-`NFT List` manages resources, as so its configuration can be thought of as a 'data'.
+As NFT configuration is stored under `/etc/nftables.*`, configuration of `NFT list` is located in `/etc/nftlists/`. It applies "available-enabled pattern" ([look: Configuration files and directories 🠋🠋🠋](#configuration-files-and-directories)) well known from Apache or Nginx.
+The format is one resource per line (with an optional comments), making it compatible with multiple white/black list published online. It is also easily managable by administrator in the contrast to NFT configuration files, that are well suited for describing 'logic' of a specific firewall, but not as data source.
 
 The idea is to avoid mixing NFT configuration with resource lists. Instead, keep them separate, similar to good program design where algorithms and data remain distinct and are not intertwined.
 
@@ -53,14 +51,14 @@ Nftables firewall is configured via `nft` user-space utility, that replaces an o
 It comes with a new `C structure` alike configuration file format. See simple example below:
 ```
 #!/sbin/nft -f
+# File: simple.nft
 
 # very simple workstation configuration
+# Flush firewall: 
 flush ruleset
 
 table inet my_table {
-
     # 'set' definitions: 
-    
     set allowed_hosts {
         type ipv4_addr;
         flags timeout, interval;
@@ -94,9 +92,8 @@ table inet my_table {
     }
 }
 ```
-The top structure in firewalls is table. `inet` in this case indicates that IPv4 and IPv6 package will traverse trought chains defined within defined table (see [Nftables families](https://wiki.nftables.org/wiki-nftables/index.php/Nftables_families)).
-
-**The anchors that binds `NFT List` with `Nftables` are the [Nft sets](https://wiki.nftables.org/wiki-nftables/index.php/Sets).**
+This is not the scope of this documentation to explain above snipped, thus, we are jumping dirctly to clue. Resources can be added to set via `elements` element, this is kind fine if there is limited number, such as set `allowed_tcp_ports` that holds 5 elements.
+**The anchors that binds `NFT List` with `Nftables` are the [Nft sets](https://wiki.nftables.org/wiki-nftables/index.php/Sets).** This is where `NFT List` adds resources.
 
 Nft sets are used to define resource list to be applied later in a chain rules.
 Normally, `set` entity would hold resource type, and actual data (elements). For instance: 
