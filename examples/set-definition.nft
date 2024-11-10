@@ -1,0 +1,28 @@
+#!/sbin/nft -f
+
+table inet filtering_machine {
+    set allow_ip_list {
+        type ipv4_addr;
+        flags timeout;
+    }
+
+    set allow_ip6_list {
+        type ipv6_addr;
+        flags timeout;
+    }
+
+    set ban_ip_list {
+        type ipv4_addr;
+        elements = { 0.0.0.0/0 }
+    }
+
+    set ban_ip6_list {
+        type ipv6_addr;
+        elements = { ::/128 }
+    }
+
+    set allow_mac_list {
+        type ether_addr;
+        flags timeout;
+    }
+}

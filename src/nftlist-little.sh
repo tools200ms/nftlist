@@ -46,6 +46,7 @@ $(basename $0) --help | -h
 
 $(basename $0) --version | -v
 	Print version
+
 EOF
 }
 
@@ -70,6 +71,10 @@ fi
 
 if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then 
 	print_msg_and_exit 0
+fi
+
+if [ "$1" == "init" ]; then
+  mkdir -p /etc/nftlists/available /etc/nftlists/enabled /etc/nftlists/included
 fi
 
 # check no. of arguments

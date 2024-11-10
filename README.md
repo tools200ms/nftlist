@@ -2,12 +2,17 @@
 # NFT List
 
 Tool developed to provide an elegant way for defining access/deny lists for Nftables (nft).
-Access/deny lists can be sets of: 
-- IP address
-- Mac address
-- Domain names
+Access/deny lists can hold: 
+* Domain names
+* IPv4 hosts and networks
+* IPv6 hosts and networks
+* Mac addresses
 
-`NFT List` uses intuitive configuration files that are separated from NFT configuration.
+Configuration data is read from [configuration files](#configuration-files-and-directories) and loaded to appropriate [NFT set](#nft-sets). NFT configuration (/etc/nftables.*) and `NFT List` configuration is separated.
+
+Domain names resolved by `NFT List` are resolved using CloudFlare `1.1.1.1` DOH (DNS over HTTP(s)) server. This is actually the most secure way to query domain names. Domain names are resolved to IP's from `A` and `AAAA` records.
+
+IPs pointed by DNS can change over time, thus `NFT List` runs periodic checks to keep firewall coherent with an actual DNS state.
 
 **NOTE:**
 Usage of this tool requires knowledge regarding Linux NFT firewall framework.
@@ -35,80 +40,64 @@ Additional NFT guides and an examples can be found in [Useful links](#useful-lin
 - [Summary](#summary)
 - [Useful links](#useful-links)
 
-## Overview
+## Project overview
 
 Modern Linux systems use NFT firewall - successor of Iptables. It comes with a new `C structure` alike configuration format ([look: NFT in short 🠋](#nft-in-short)).
 
 Firewall is a crucial security element, thus its configuration should be kept straightforward.
 
-As NFT configuration is stored under `/etc/nftables.*`, configuration of `NFT list` is located in `/etc/nftlists/`. It applies "available-enabled pattern" ([look: Configuration files and directories 🠋🠋🠋](#configuration-files-and-directories)) well known from Apache or Nginx.
-The format is one resource per line (with an optional comments), making it compatible with multiple white/black list published online. It is also easily managable by administrator in the contrast to NFT configuration files, that are well suited for describing 'logic' of a specific firewall, but not as data source.
+The `NFT List` uses "available-enabled pattern" ([look: Configuration files and directories 🠋🠋🠋](#configuration-files-and-directories)) configuration, that is well known from Apache or Nginx. List resource, such as IPs are read from simple 'line-delimited' text files.
 
 The idea is to avoid mixing NFT configuration with resource lists. Instead, keep them separate, similar to good program design where algorithms and data remain distinct and are not intertwined.
 
-## NFT in short
-Nftables firewall is configured via `nft` user-space utility, that replaces an old `iptables` but also `ip6tables`, `arptables` and `ebtables` commands. 
-It comes with a new `C structure` alike configuration file format. See simple example below:
+## NFT integration
+Nftables provides so-called sets. Set is a set of elements of the same type, type can be one of: `ipv4_addr`, `ipv6_addr`, `ether_addr` [and more (Named sets specifications)](https://wiki.nftables.org/wiki-nftables/index.php/Sets). 
+
+**The NFT Sets are an 'anchors' where `NFT List` attaches the list of elements (IP addresses, macs, domain names).**
+
+### Non-atomic issue
+Advantage of NFT over IPtables is 'atomic' operation. The command `nft -f <filename>` loads configuration 'on a side'. When configfile is successfully loaded NFT switches in an atomic manner to a new configuration. This means there is no single moment when firewall is partially configured.
+As `NFT List` operates after `nft` command, this might bring security issues, such as access to machine from banned IP (for very short time).
+
+The solution is to cork a sets with `0.0.0.0/0` and `::/128` masks. 
+See example below: 
 ```
-#!/sbin/nft -f
-# File: simple.nft
-
-# very simple workstation configuration
-# Flush firewall: 
-flush ruleset
-
-table inet my_table {
-    # 'set' definitions: 
-    set allowed_hosts {
+table inet filtering_machine {
+    set allow_ip_list {
         type ipv4_addr;
-        flags timeout, interval;
+        flags timeout;
     }
 
-    set allowed_tcp_ports {
-        type inet_service;
-        flags interval;
-        elements = { ssh, http, https, http-alt, 3000-5000 }
+    set allow_ip6_list {
+        type ipv6_addr;
+        flags timeout;
     }
 
-    chain my_input {
-        type filter hook input priority 0; policy drop;
+    set ban_ip_list {
+        type ipv4_addr;
+        elements = { 0.0.0.0/0 }
+    }
 
-        # Input Part I: set firewall to let for an outgoing connections, 
-        # while dropping incoming traffic
-        
-        iifname lo accept \
-            comment "Accept any localhost traffic"
-        ct state invalid drop \
-            comment "Drop invalid connections"
-        ct state { established, related } accept \
-            comment "Accept traffic originated from us"
+    set ban_ip6_list {
+        type ipv6_addr;
+        elements = { ::/128 }
+    }
 
-        # Input Part II: do an exception for incoming traffic for
-        # `@allowed_hosts` to `allowed_tcp_ports`
-        
-        tcp dport @allowed_tcp_ports \
-        ip  saddr @allowed_hosts ct state new accept \
-            comment "Accept connections for chosen hosts to selected ports"
+    set allow_mac_list {
+        type ether_addr;
+        flags timeout;
     }
 }
 ```
-This is not the scope of this documentation to explain above snipped, thus, we are jumping dirctly to clue. Resources can be added to set via `elements` element, this is kind fine if there is limited number, such as set `allowed_tcp_ports` that holds 5 elements.
-**The anchors that binds `NFT List` with `Nftables` are the [Nft sets](https://wiki.nftables.org/wiki-nftables/index.php/Sets).** This is where `NFT List` adds resources.
+The allow lists should be left empty (no elements), for filling in bit later by `NFT List`. In this case there us no security thread as firewall would not allow packages (empty set) to pass through. You can put in NFT configuration IP of administrative machine if you suspect the scenario where `NFT List` does not load, to ensure access to machine.
 
-Nft sets are used to define resource list to be applied later in a chain rules.
-Normally, `set` entity would hold resource type, and actual data (elements). For instance: 
-```
-set allowed_hosts {
-        type ipv4_addr;
-        flags timeout, interval;
-        elements = { 192.168.1.4, 192.168.1.5 }
-    }
-```
-As putting 'element list' in configuration, especially for a long, changing lists introduces and risc to brak something in filtering logic.
+Ban lists are logical opposites to 'allow' lists. To ensure there is no single moments when 'bad' packege can 'sneak under', mask `0.0.0.0/0` and `::/128` should be used to cork all `ipv4_addr` and `ipv6_addr` traffic. `NFT List` will remove that addresses after ban list is loaded.
 
-Chain `my_input` has a default policy drop, if no 
-`Input Part I`  for outgoing connections while dropping traffic originated from outside.
-But as an exception (`Input Part II`) chosen `allowed_hosts` hosts can be allowed for connecting host at `allowed_tcp_ports`.
+Note, `timeout` flag of NFT set can be used to define elements to expire automatically. It might be a good feature for a long, constantly being updated lists. More information in [TODO]().
+
+
+
+
 
 Once when NFT with this configuration is loaded (note `flush ruleset` - that purges all previous settings) `allowed_hosts` is empty.
 Therefore, no other host is allowed to let in, access can be open from command line:
@@ -130,29 +119,7 @@ nftlist.sh update /etc/nftdef/allowed_hosts.list
 ```
 `NFT List` comes with OpenRC init script to load settings a boot time, and cron script for periodic reloads. More in [Part II: Installation and Configuration](#part-ii-installation-and-configuration).
 
-## Project's scope
 
-The aim of the project is to complement Nftables user-space tools by:
-1. providing domain-based filtering
-2. letting on keeping data in a separated from NFT configuration files
-
-The key features of `NFT List` are:
-
-1. Domain names are resolved by `NFT List` using CloudFlare `1.1.1.1` DOH (DNS over HTTP(s)) server. This is actually the most secure way to query domain names.
-2. `NFT List` handles following network resources:
-    * Domain names (example.com) and:
-    * IPv4 addresses (10.0.23.3)
-    * IPV4 networks (103.31.4.0/22)
-    * IPv6 addresses (fe80::e65f:1ff:fe1b:5bee)
-    * IPv6 networks (2001:db8:1234::/48)
-    * Mac addresses (02:42:ac:16:00:02)
-
-    These data is read from [configuration files](#configuration-files-and-directories) and loaded to appropriate [NFT set](#nft-sets).
-3. IPs pointed by DNS can change over time, thus `NFT List` runs periodic checks to keep firewall coherent with an actual DNS state.
-
-Please note that domain based filtering is not a perfect one. Usually multiple domain names share common IP's. 
-Encrypted connections (that protect privacy) prevent firewall from inspecting network package for source/destination check. 
-Therefore, some extra names can 'sneak' under the radar. However, this issue is negligible comparing to benefits coming from restricted firewall rule set.
 
 ## HowTo Use
 `NFT List` is interacting with a firewall that is a vital part of a network security.

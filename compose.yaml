@@ -5,41 +5,45 @@ networks:
 
 
 services:
-  peer1:
+  common:
     build:
       context: .
-    volumes:
-      - ./src/init.d/nftlist:/etc/init.d/nftlist
-      - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh
-      - ./src/nftlist-little.sh:/usr/local/bin/nftlist-little.sh
-      - ./src/nft_example.py:/root/bin/nft_example.py
-
-      - ./lists:/etc/nftlists/included/predef
-      - ./examples:/usr/share/nftlist
-      - ./test:/root/test
+    image: nftlist-peer-common
+    command: ["echo", "Build-only service"]
 
     networks:
       - nfttest-net
 
-    cap_add: ['SYS_ADMIN']
+  peer1:
+    image: nftlist-peer-common
+    volumes:
+      - ./src/init.d/nftlist:/etc/init.d/nftlist
+      - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh
+      - ./src/nftlist-little.sh:/usr/local/bin/nftlist-little.sh
+      - ./src/nftlist.py:/usr/local/bin/nftlist.py
+
+      - ./lists:/etc/nftlists/included/predef
+      - ./examples:/usr/share/nftlist
+
+      - ./src/nft_example.py:/root/bin/nft_example.py
+      - ./test:/root/test
+
+    cap_add: [ 'SYS_ADMIN' ]
     privileged: true
 
   peer2:
-    build:
-      context: .
+    image: nftlist-peer-common
     volumes:
       - ./src/init.d/nftlist:/etc/init.d/nftlist
       - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh
       - ./src/nftlist-little.sh:/usr/local/bin/nftlist-little.sh
-      - ./src/nft_example.py:/root/bin/nft_example.py
+      - ./src/nftlist.py:/usr/local/bin/nftlist.py
 
       - ./lists:/etc/nftlists/included/predef
       - ./examples:/usr/share/nftlist
+
+      - ./src/nft_example.py:/root/bin/nft_example.py
       - ./test:/root/test
 
-    networks:
-      - nfttest-net
-
-    cap_add: ['SYS_ADMIN']
+    cap_add: [ 'SYS_ADMIN' ]
     privileged: true
-
