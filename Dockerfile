@@ -1,7 +1,10 @@
-FROM 200ms/alpinenet_dev2
+FROM alpinenet_dev2
+#200ms/alpinenet_dev2:testing
 
 # How To build Alpine package:
 # https://wiki.alpinelinux.org/wiki/Creating_an_Alpine_package
+
+ENV FEATURES=""
 
 # required  openrc bash nftables jq
 RUN dev2_addtools.sh openrc bash nftables jq \
@@ -10,7 +13,7 @@ RUN dev2_addtools.sh openrc bash nftables jq \
 
 
 # install network software to experiment with:
-RUN dev2_addtools.sh conntrack-tools \
+RUN dev2_addtools.sh conntrack-tools tcpdump \
                      openssh-client openssh-server scanssh \
                      lighttpd \
                      inetutils-telnet
@@ -31,5 +34,8 @@ RUN nftlist-little.sh init
 COPY ./lists /etc/nftlists/included/predef
 COPY ./examples /usr/share/nftlist
 
-# NFT Examples:
-# /usr/share/nftables/
+# overwrite:
+COPY ./entry.sh /entry2.sh
+RUN chmod +x /entry2.sh
+
+CMD ["/entry2.sh"]

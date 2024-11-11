@@ -5,6 +5,8 @@
 build/
 venv/
 
+tcpdump/*
+
 release/
 test/data/
 

@@ -1,3 +1,4 @@
+Note: This is work in Progress
 
 # NFT List
 
@@ -46,11 +47,14 @@ Modern Linux systems use NFT firewall - successor of Iptables. It comes with a n
 
 Firewall is a crucial security element, thus its configuration should be kept straightforward.
 
+TODO: move it configuration: 
 The `NFT List` uses "available-enabled pattern" ([look: Configuration files and directories 🠋🠋🠋](#configuration-files-and-directories)) configuration, that is well known from Apache or Nginx. List resource, such as IPs are read from simple 'line-delimited' text files.
 
 The idea is to avoid mixing NFT configuration with resource lists. Instead, keep them separate, similar to good program design where algorithms and data remain distinct and are not intertwined.
 
-## NFT integration
+Next points describe how to configure NFT, you can also jump straight to Examples.
+
+## NFT sets
 Nftables provides so-called sets. Set is a set of elements of the same type, type can be one of: `ipv4_addr`, `ipv6_addr`, `ether_addr` [and more (Named sets specifications)](https://wiki.nftables.org/wiki-nftables/index.php/Sets). 
 
 **The NFT Sets are an 'anchors' where `NFT List` attaches the list of elements (IP addresses, macs, domain names).**
@@ -93,11 +97,18 @@ The allow lists should be left empty (no elements), for filling in bit later by 
 
 Ban lists are logical opposites to 'allow' lists. To ensure there is no single moments when 'bad' packege can 'sneak under', mask `0.0.0.0/0` and `::/128` should be used to cork all `ipv4_addr` and `ipv6_addr` traffic. `NFT List` will remove that addresses after ban list is loaded.
 
+TODO: remove
 Note, `timeout` flag of NFT set can be used to define elements to expire automatically. It might be a good feature for a long, constantly being updated lists. More information in [TODO]().
 
+`NFT List` at each boot chceks if lists are propperly sealed. If a ste is bound to drop or reject, but no '0.0.0.0/0 cork' is added, warning is issued.
 
+## NFT List configuration
+...
 
-
+## Simple example
+TODO: move to an end
+Simple example can be foundin: [example1.1-workstation.nft](examples/example1.1-workstation.nft) and `NFT List`
+[example1.1-workstation.list](examples/example1.1-workstation.list).
 
 Once when NFT with this configuration is loaded (note `flush ruleset` - that purges all previous settings) `allowed_hosts` is empty.
 Therefore, no other host is allowed to let in, access can be open from command line:
@@ -122,8 +133,6 @@ nftlist.sh update /etc/nftdef/allowed_hosts.list
 
 
 ## HowTo Use
-`NFT List` is interacting with a firewall that is a vital part of a network security.
-Therefore, this guide is not only touching aspects of `NFT List` but primally `Nftables` to present necessary details for user to be aware of what is being done.
 
 
 ### Part I: Firewall
@@ -228,7 +237,7 @@ Just after installation as configuration is empty nothing will happen.
 #### Configuration files and directories
 
 Refer to your Linux distribution guide to learn how to handle NFT configuration under your system.
-Usually (Debian, Alphine) main configuration file is `/etc/nftables.nft` while directory `/etc/nftables.d/` is used to drop in additional settings.
+Usually (Debian, Alphine) main configuration file is `/etc/nftables.nft` while directory `/etc/nftables.d/` is used for drop in additional settings.
 
 `Nft List` uses `/etc/nftlists/` as a storage for network resource lists.
 

@@ -1,6 +1,8 @@
 
 networks:
-  nfttest-net:
+  intern-net:
+    external: false
+  extern-net:
     external: false
 
 
@@ -8,42 +10,79 @@ services:
   common:
     build:
       context: .
-    image: nftlist-peer-common
+    image: nftlist-common
     command: ["echo", "Build-only service"]
 
+  client:
+    image: nftlist-common
     networks:
-      - nfttest-net
-
-  peer1:
-    image: nftlist-peer-common
+      - intern-net
+    environment:
+      - MYROLE=client
     volumes:
-      - ./src/init.d/nftlist:/etc/init.d/nftlist
-      - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh
-      - ./src/nftlist-little.sh:/usr/local/bin/nftlist-little.sh
-      - ./src/nftlist.py:/usr/local/bin/nftlist.py
+      - ./tcpdump:/tmp/pipes
+      - ./src/init.d/nftlist:/etc/init.d/nftlist:ro
+      - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh:ro
+      - ./src/nftlist-little.sh:/usr/local/bin/nftlist-little.sh:ro
+      - ./src/nftlist.py:/usr/local/bin/nftlist.py:ro
 
-      - ./lists:/etc/nftlists/included/predef
-      - ./examples:/usr/share/nftlist
+      - ./lists:/etc/nftlists/included/predef:ro
+      - ./examples:/root/examples:ro
 
-      - ./src/nft_example.py:/root/bin/nft_example.py
-      - ./test:/root/test
+      - ./src/nft_example.py:/root/bin/nft_example.py:ro
+      - ./test:/root/test:ro
 
+    depends_on:
+      - common
     cap_add: [ 'SYS_ADMIN' ]
     privileged: true
 
-  peer2:
-    image: nftlist-peer-common
+  router:
+    image: nftlist-common
+    networks:
+      - intern-net
+      - extern-net
+    environment:
+      - MYROLE=router
     volumes:
-      - ./src/init.d/nftlist:/etc/init.d/nftlist
-      - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh
-      - ./src/nftlist-little.sh:/usr/local/bin/nftlist-little.sh
-      - ./src/nftlist.py:/usr/local/bin/nftlist.py
+      - ./tcpdump:/tmp/pipes
+      - ./src/init.d/nftlist:/etc/init.d/nftlist:ro
+      - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh:ro
+      - ./src/nftlist-little.sh:/usr/local/bin/nftlist-little.sh:ro
+      - ./src/nftlist.py:/usr/local/bin/nftlist.py:ro
 
-      - ./lists:/etc/nftlists/included/predef
-      - ./examples:/usr/share/nftlist
+      - ./lists:/etc/nftlists/included/predef:ro
+      - ./examples:/root/examples:ro
 
-      - ./src/nft_example.py:/root/bin/nft_example.py
-      - ./test:/root/test
+      - ./src/nft_example.py:/root/bin/nft_example.py:ro
+      - ./test:/root/test:ro
 
+    depends_on:
+      - common
     cap_add: [ 'SYS_ADMIN' ]
     privileged: true
+
+  server:
+    image: nftlist-common
+    networks:
+      - extern-net
+    environment:
+      - MYROLE=server
+    volumes:
+      - ./tcpdump:/tmp/pipes
+      - ./src/init.d/nftlist:/etc/init.d/nftlist:ro
+      - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh:ro
+      - ./src/nftlist-little.sh:/usr/local/bin/nftlist-little.sh:ro
+      - ./src/nftlist.py:/usr/local/bin/nftlist.py:ro
+
+      - ./lists:/etc/nftlists/included/predef:ro
+      - ./examples:/root/examples:ro
+
+      - ./src/nft_example.py:/root/bin/nft_example.py:ro
+      - ./test:/root/test:ro
+
+    depends_on:
+      - common
+    cap_add: [ 'SYS_ADMIN' ]
+    privileged: true
+
