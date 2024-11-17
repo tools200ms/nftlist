@@ -1,5 +1,4 @@
-FROM alpinenet_dev2
-#200ms/alpinenet_dev2:testing
+FROM 200ms/alpinenet_dev2
 
 # How To build Alpine package:
 # https://wiki.alpinelinux.org/wiki/Creating_an_Alpine_package

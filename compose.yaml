@@ -15,6 +15,7 @@ services:
 
   client:
     image: nftlist-common
+    container_name: client
     networks:
       - intern-net
     environment:
@@ -39,6 +40,7 @@ services:
 
   router:
     image: nftlist-common
+    container_name: router
     networks:
       - intern-net
       - extern-net
@@ -64,6 +66,7 @@ services:
 
   server:
     image: nftlist-common
+    container_name: server
     networks:
       - extern-net
     environment:
