@@ -1,18 +1,40 @@
+Metadata-Version: 2.1
+Name: nftlist
+Version: 0.1.0
+Summary: NFT complementing tool for blocking/allowing traffic based on domain names, IP or mac adresses.
+Home-page: https://github.com/tools200ms/nftlist
+Author: Mateusz (Barnaba) Piwek
+Author-email: barnaba@200ms.net
+License: MIT
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: POSIX :: Linux
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: nft>=2.7
+
+Note: This is work in Progress
+
 # NFT List
 
-NFT List provides the functionality for blocking and allowing traffic based on: 
+Tool developed to provide an elegant way for defining access/deny lists for Nftables (nft).
+Access/deny lists can hold: 
 * Domain names
 * IPv4 hosts and networks
 * IPv6 hosts and networks
 * Mac addresses
 
-It extends [Linux NFT](https://en.wikipedia.org/wiki/Nftables) and uses [NFT Sets](https://wiki.nftables.org/wiki-nftables/index.php/Sets). 
+Configuration data is read from [configuration files](#configuration-files-and-directories) and loaded to appropriate [NFT set](#nft-sets). NFT configuration (/etc/nftables.*) and `NFT List` configuration is separated.
 
-It uses "available-enabled pattern" [configuration](#configuration-files-and-directories) such as Apache or Nginx to let administrators on continent management of access/deny lists.
+Domain names resolved by `NFT List` are resolved using CloudFlare `1.1.1.1` DOH (DNS over HTTP(s)) server. This is actually the most secure way to query domain names. Domain names are resolved to IP's from `A` and `AAAA` records.
 
-**This tool lets administrators on separation of NFT firewall configuration (logic) from data, that is block/allow lists.**
+IPs pointed by DNS can change over time, thus `NFT List` runs periodic checks to keep firewall coherent with an actual DNS state.
 
-`NFT List` resolves domain names by default via CloudFlare's `1.1.1.1` DOH (DNS over HTTP(s)). It has been developed in Python.
+**NOTE:**
+Usage of this tool requires knowledge regarding Linux NFT firewall framework.
+For more information check out [NFT Quick reference in 10 minutes](https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes).
+Additional NFT guides and an examples can be found in [Useful links](#useful-links) section at the bottom of this page.
 
 ## Table of contents
 
@@ -34,74 +56,6 @@ It uses "available-enabled pattern" [configuration](#configuration-files-and-dir
   - [Troubleshooting](#troubleshooting)
 - [Summary](#summary)
 - [Useful links](#useful-links)
-
-
-## Requirements
-`NFT List` requiers Python3 and configured NFT firewall. NFT list will 'attach' the list into indicated NFT set.
-
-## Installation
-
-Project is available in PyPI, install it (from root account) using the following commands: 
-```commandline
-# Install Python package from repository
-pip install nftlist
-# initialise configuration structure
-nftlist init --download
-```
-Option `--download` downloads pre-defined lists that can be used for restricting firewall to traffic to a various GitHub, Cloudflare, Bitbucket servers. This list can be seen 
-[here](https://github.com/tools200ms/nftlist/tree/release/lists).
-
-## Configuration
-
-`Nft List` configuration is in `/etc/nftlists/`. **Directory `available` is designated for user defined access/deny lists.** 
-Directory `enabled` can only be used for linking to lists in `available`. As the pattern suggests, valid links in `enabled` indicates the lists for loading by `NFT List`.
-
-List files can contein directive `@include`
-
-`included/_user` for user defined large lists.
-
-It holds `available` and `enabled` directories:
-```bash
-# tree /etc/nftlists/
-/etc/nftlists/
-├── available
-│   ├── inbound_filter.list
-│   └── outbound_filter.list
-├── enabled
-│   └── inbound_filter.list -> ../available/inbound_filter.list
-└── included
-    ├── _localnet
-    │   ├── broadcast-ipv4.list
-    │   ├── localnet-ipv4.list
-    │   └── localnet-ipv6.list
-    ├── _user
-    ├── bitbucket
-    │   ├── bitbucket-all-inet.list
-    │   ├── bitbucket-out-inet.list
-    │   └── bitbucket-out_email-inet.list
-    ├── cloudflare
-    │   ├── cloudflare-ipv4.list
-    │   └── cloudflare-ipv6.list
-    ├── github
-    │   ├── github-actions-inet.list
-    │   ├── github-api-inet.list
-    │   ├── github-git-inet.list
-    │   ├── github-hooks-inet.list
-    │   ├── github-packages-inet.list
-    │   ├── github-pages-inet.list
-    │   └── github-web-inet.list
-    └── nitropack
-        └── nitropack-ipv4.list
-
-9 directories, 19 files
-
-```
-`nftlist` by default, if no configuration file or directory is passed, loads all files ended with `.list` extension that are located 
-in `/etc/nftlists/enabled/` (no recursive search).
-
-
-## NFT side
-
 
 ## Project overview
 
@@ -296,9 +250,29 @@ service nftlist start
 this reads configuration from `/etc/nftlists/available/` and loads NFT sets.
 Just after installation as configuration is empty nothing will happen.
 
+#### Configuration files and directories
 
+Refer to your Linux distribution guide to learn how to handle NFT configuration under your system.
+Usually (Debian, Alphine) main configuration file is `/etc/nftables.nft` while directory `/etc/nftables.d/` is used for drop in additional settings.
 
+`Nft List` uses `/etc/nftlists/` as a storage for network resource lists.
 
+It holds `available` and `enabled` directories:
+```bash
+# tree /etc/nftlists/
+/etc/nftlists/
+├── available
+│   ├── inbound_filter.list
+│   └── outbound_filter.list
+├── enabled
+│   └── outbound_filter.list -> ../available/outbound_filter.list
+└── included
+    └── phising_list.txt.gz
+
+3 directories, 4 files
+```
+`nftlist` by default, if no configuration file or directory is passed, loads all files ended with `.list` extension that are located 
+in `/etc/nftlists/enabled/` (no recursive search).
 
 ##### File format
 

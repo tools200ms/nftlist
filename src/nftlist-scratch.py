@@ -21,7 +21,7 @@ class CmdOption:
     def validate(arg):
         pass
 
-    def context(self, name: str, value = None):
+    def context(self, name: str, value=None):
         if self.__context_pattern.fullmatch(name) == None:
             raise Exception('Internal error, not allowed context name')
 
@@ -30,6 +30,7 @@ class CmdOption:
 
         self.__context[name] = value
         return None
+
 
 class BinaryArg:
     @staticmethod
@@ -49,9 +50,11 @@ class StrArg:
         self._sarg = sarg
         self._assocobj = None
 
-    def getArg(self) -> str: return self._arg
+    def getArg(self) -> str:
+        return self._arg
 
-    def getSArg(self) -> str: return self._sarg
+    def getSArg(self) -> str:
+        return self._sarg
 
     def validate(self, arg):
         if self._assocobj != None:
@@ -64,24 +67,28 @@ class StrArg:
             raise Exception('Missing argument(s) for: ' + self._arg)
 
         return self._assocobj
+
     @abstractmethod
     def feed(self):
         pass
+
 
 class StrArgWCnt(StrArg):
     def __init__(self, arg, sarg):
         super().__init__(arg, sarg)
         self.__arg_feed_cnt = -1
 
-    def postincr(self, skip = False):
+    def postincr(self, skip=False):
         self.__arg_feed_cnt += 1
         return self.__arg_feed_cnt
 
     def decr(self):
         self.__arg_feed_cnt -= 1
 
+
 class ConfError(Exception):
     pass
+
 
 class DataError(Exception):
     pass
@@ -90,7 +97,7 @@ class DataError(Exception):
 class InclDirPath:
     __DEFAULT = '/etc/nftlists/included'
 
-    def __init__(self, path = __DEFAULT):
+    def __init__(self, path=__DEFAULT):
         self.__path = normpath(path)
         self.__verified = False
 
@@ -111,11 +118,13 @@ class InclDirPath:
         self.verifyPath()
         return os.path.join(self.__path, file_name)
 
+
 class NFTListDirective:
-    def update( self ):
+    def update(self):
         pass
 
-class SetDirective( NFTListDirective ):
+
+class SetDirective(NFTListDirective):
     def __init__(self, family, tablen, setn):
         errors = []
 
@@ -144,35 +153,46 @@ class SetDirective( NFTListDirective ):
         if len(errors) != 0:
             errors.insert(0, 'Cannot load set, following errors has been encounted: ')
             raise ConfError('\n * '.join(errors))
+
     def isCompleate(self):
         pass
 
     def merge(self, perv_set):
         pass
 
-class InclDirective( NFTListDirective ):
+
+class InclDirective(NFTListDirective):
     def __init__(self, file_name):
         self.__file_name = normpath(file_name)
 
-class OnPanicDirective( NFTListDirective ):
+
+class OnPanicDirective(NFTListDirective):
     def __init__(self):
         pass
 
+
 class Program:
     @staticmethod
-    def name() -> str: return "NFT List"
-    @staticmethod
-    def command() -> str: return "nftlist"
-    @staticmethod
-    def Author() -> str: return "Mateusz Piwek"
+    def name() -> str:
+        return "NFT List"
 
     @staticmethod
-    def Version() -> str: return "1.2.9 - alpha"
+    def command() -> str:
+        return "nftlist"
 
     @staticmethod
-    def License() -> str: return "MIT License"
+    def Author() -> str:
+        return "Mateusz Piwek"
 
-    class Action (CmdOption, Enum):
+    @staticmethod
+    def Version() -> str:
+        return "1.2.9 - alpha"
+
+    @staticmethod
+    def License() -> str:
+        return "MIT License"
+
+    class Action(CmdOption, Enum):
         UPDATE = 'update'
         PURGE = 'purge'
         PANIC = 'panic'
@@ -184,7 +204,7 @@ class Program:
         @staticmethod
         def validate(arg):
             res = None
-            match(arg):
+            match (arg):
                 case 'update' | 'u':
                     res = Program.Action.UPDATE
                 case 'purge':
@@ -199,7 +219,7 @@ class Program:
         def getPath(self):
             return self.__path
 
-        def __init__(self, path : str = __DEFAULT):
+        def __init__(self, path: str = __DEFAULT):
             if isdir(path):
                 self.__isdir = True
             elif isfile(path):
@@ -208,8 +228,10 @@ class Program:
                 raise Exception('Configuration file or direcotry not found')
 
             self.__path = realpath(path)
+
         def isDir(self):
             return self.__isdir
+
         @staticmethod
         def validate(arg):
             return Program.ConfPath(arg)
@@ -224,7 +246,7 @@ class Program:
             if arg.startswith('--'):
                 raise ConfError('Incorrect syntax')
 
-            match(self.postincr()):
+            match (self.postincr()):
                 case 0:
                     self._family = arg
                 case 1:
@@ -239,7 +261,7 @@ class Program:
             return self
 
     class InclDirArg(StrArg):
-        def __init__(self, path : str = None):
+        def __init__(self, path: str = None):
             super().__init__('--includedir', '-D')
 
         def feed(self, arg):
@@ -247,7 +269,7 @@ class Program:
             self._assocobj.verifyPath()
             return None
 
-    class HelpArg (BinaryArg):
+    class HelpArg(BinaryArg):
 
         @staticmethod
         def validate(arg):
@@ -255,29 +277,7 @@ class Program:
 
         @staticmethod
         def print():
-            print(f"Command syntax: \
-{Program.command()} <update|purge|panic> [conf. path] [--set <address family> <table> <set>] [--includedir <path>]\
-\
-	update,u - updates NFT sets according to settings from configuration\
-	purge    - delete all elements of NFT sets referred in configuration\
-	panic    - keep, or discard NFT sets that has been marked by directive @onpanic\
-\
-	Optional:\
-	<conf path> - path to file or directory configuration, if path is a directory\
-	              all '*.list' files under this location are loaded (no recurcive search)\
-\
-	--set,-s - define set, replaces '@set' directive from file\
-	--includedir,-D - indicates search directory for files included with '@include' directive\
-\
-	If settings are not provided, default values are:\
-		'$_DEFAULT_CONF' as configuration directory and\
-		'$_DEFAULT_INCL' as include directory is used\
-\
-$(basename $0) --help | -h\
-	Print this help\
-\
-$(basename $0) --version | -v\
-	Print version")
+            )
 
     class VersionArg(BinaryArg):
         @staticmethod
@@ -289,37 +289,42 @@ $(basename $0) --version | -v\
             print(f"NFT List, version: {Program.Version()}\
 Created by {Program.License()}, released with {Program.License()}")
 
+
+Program.HelpArg.print()
+
+exit(0)
+
+
 # Meaningfull (not empty) line:
 def parse_line(mean_line: str) -> None:
-
     # index of a comment mark '#'
     c_idx = mean_line.find('#')
     if c_idx != -1:
         # cut end comment
-        mean_line = mean_line[ 0 : c_idx ].strip()
+        mean_line = mean_line[0: c_idx].strip()
 
     if line[0] == '@':
         # directive has been encounted
         direct = line.split()
         match direct[0]:
             case '@set':
-                if len( direct ) != 4:
+                if len(direct) != 4:
                     raise ConfError('@set directive requiers 4 arguments')
-                return SetDirective( direct[1], direct[2], direct[3] )
+                return SetDirective(direct[1], direct[2], direct[3])
 
             case '@include':
-                if len( direct ) != 2:
+                if len(direct) != 2:
                     raise ConfError('@ include directive requiers 1 argument')
-                return InclDirective( direct[1] )
+                return InclDirective(direct[1])
             case '@query':
                 raise Exception('Not implemented')
             case '@onpanic':
-                if len( direct ) != 2:
+                if len(direct) != 2:
                     raise ConfError('@onpanic directive requiers 1 argument')
-                return OnPanicDirective( direct[1] )
+                return OnPanicDirective(direct[1])
 
     # clasify to what data set resource belongs to
-    
+
 
 action = None
 config = None
@@ -378,7 +383,6 @@ if config == None:
 if incl_arg == None:
     incl_arg = Program.InclDirArg()
 
-
 conf_path = config.getPath()
 
 conf_files = []
@@ -393,7 +397,7 @@ else:
 # ensure files are in alpha-numeric order:
 conf_files.sort()
 LINE_LEN_LIMIT = 2048
-LINE_CNT_LIMIT = 1024*1024
+LINE_CNT_LIMIT = 1024 * 1024
 
 # NFTListDirective
 context = None
@@ -410,12 +414,12 @@ for cf in conf_files:
             while line_no < LINE_CNT_LIMIT:
                 line_no += 1
                 line = cf.readline(LINE_LEN_LIMIT).strip()
-                lines = cf.readlines( 4096 )
+                lines = cf.readlines(4096)
 
                 for line in lines:
                     pass
 
-                map( None, lines )
+                map(None, lines)
 
                 if not line:
                     break
@@ -423,24 +427,22 @@ for cf in conf_files:
                 parse_line(line)
 
             if line_no == LINE_CNT_LIMIT:
-                raise DataError(f"Max line number count been excceded\n MAX_CNT_LIMIT: {LINE_CNT_LIMIT}, file:{cf_path}")
+                raise DataError(
+                    f"Max line number count been excceded\n MAX_CNT_LIMIT: {LINE_CNT_LIMIT}, file:{cf_path}")
     except Exception as ex:
         print(f"Error in file: '{cf_path}' at line: {line_no}\n" + ' * \n'.join(ex.args))
-
-
 
 if set_arg == None:
     print('No set has been encouned, exiting')
     exit(1)
 
+# LIST_INPUT
+# for file in listdir()
 
-#LIST_INPUT
-#for file in listdir()
 
+# nft = nftables.Nftables()
+# nft.set_json_output(True)
 
-#nft = nftables.Nftables()
-#nft.set_json_output(True)
-
-#rc, output, error = nft.cmd("list ruleset")
-#print(json.loads(output))
+# rc, output, error = nft.cmd("list ruleset")
+# print(json.loads(output))
 

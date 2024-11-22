@@ -21,7 +21,7 @@ services:
     environment:
       - MYROLE=client
     volumes:
-      - ./tcpdump:/tmp/pipes
+      - ./pipes:/tmp/pipes
       - ./src/init.d/nftlist:/etc/init.d/nftlist:ro
       - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh:ro
       - ./src/nftlist-little.sh:/usr/local/bin/nftlist-little.sh:ro

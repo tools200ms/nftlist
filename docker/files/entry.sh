@@ -6,7 +6,7 @@ if [[ "$MYROLE" =~ ^[a-zA-Z0-9]+$ ]]; then
     mkfifo /tmp/pipes/$MYROLE
     chown 1000:1000 /tmp/pipes/$MYROLE
   elif [ ! -p /tmp/pipes/$MYROLE ]; then
-    echo "Ensure file: '/tmp/pipes/$MYROLE' is a pipe"
+    echo "File '/tmp/pipes/$MYROLE' is not a pipe as required"
     exit 2
   fi
 fi
