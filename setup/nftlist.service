@@ -1,0 +1,9 @@
+[Unit]
+Description=NFT List
+Wants=nftables.target
+
+[Service]
+ExecStart=/usr/bin/python3 -m nftlist update
+
+[Install]
+WantedBy=sysinit.target

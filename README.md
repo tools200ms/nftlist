@@ -5,7 +5,7 @@ NFT List provides the functionality for blocking and allowing traffic based on:
 * IPv4 and IPv6 hosts and networks
 * Mac addresses
 
-It extends [Linux NFT](https://en.wikipedia.org/wiki/Nftables) firewall and uses [NFT Sets](https://wiki.nftables.org/wiki-nftables/index.php/Sets) to "attach" a specific list. 
+It extends [Linux NFT (Nftables)](https://en.wikipedia.org/wiki/Nftables) firewall and uses [NFT Sets](https://wiki.nftables.org/wiki-nftables/index.php/Sets) to "attach" a specific list. 
 
 It implements the "available-enabled pattern" configuration (refer to the [Configuration section](#configuration)), commonly used in Apache or Nginx, allowing administrators to manage system conveniently.
 
@@ -40,7 +40,7 @@ It implements the "available-enabled pattern" configuration (refer to the [Confi
 
 The `NFT List` requires Python 3 and a configured NFT firewall. Administrators define NFT sets within the firewall, which are populated with the appropriate lists by `NFT List`.
 
-**Short NOTICE: In this document network resources that `NFT List` can refer to (domain names, IPv4/IPv6 and macs) will be referred simply as 'resources'.**
+**Short NOTICE: In this document network resources handled by `NFT List` (domain names, IPv4/IPv6 and macs) will be referred simply as 'resources'.**
 
 ## Installation
 
@@ -85,7 +85,7 @@ Option `--download` downloads pre-defined lists that can be used for restricting
 **Directory `available` is designated for user defined access/deny lists.** 
 Directory `enabled` can only be used for linking to lists in `available`. **As the pattern suggests, `NFT List` loads the lists solely from the `enabled` directory**.
 
-List files are required to have a `.list` extension, and link files must share the same basename as their corresponding source files. `NFT List` does not perform recursive searches; therefore, paths like *enabled/directory/link_to_file_in_available.list* are ignored with a warning.
+List files are required to have a `.list` extension, and link files in `enabled` must share the same basename as their corresponding source files. `NFT List` does not perform recursive searches; therefore, paths like *enabled/directory/link_to_file_in_available.list* are ignored with a warning.
 
 Files `*.list` contain defined resources, potential comments, but also `section marks` and `directives` (details in section ["File Format"](#file-format)). One of the directives is `@include` that allows on inclusion of pre-defined lists from services such as GitHub. These lists are located under `included` directory.
 
@@ -101,21 +101,19 @@ On NFT side (by default in `/etc/nftables.nft` and `/etc/nftables.d/`) administr
 ### "Non-atomic" issue
 Advantage of NFT over IPtables is 'atomic' operation. The command `nft -f <filename>` loads configuration 'on a side'. When configfile is successfully validated NFT switches in an atomic manner to a new setup. This means there is no a single moment when firewall is partially configured.
 As `NFT List` acts after `nft` command, this might bring following security issues: 
-- very short time when miss-behaviour can occur (such as open access to denied IPs)
-- permanent time when miss-behaviour can occur
+- very short time of security violation (such as open access from denied IPs)
+- permanent time of security violation
 
-The first is difficult to exploit (but still possible) as the result of a short time that it is necessary to load a lists. The second that is very serious is the result of on loading `NFT List` due to some kide of crash. 
+The first case is difficult to exploit (but still possible), it is due to a short time that is after NFT setup, but before lists are loaded. The second that is a very serious is the result of no-loading `NFT List` due to some kind of system error. 
 
 ### Set Corks convention
-The solution is to cork a sets with `0.0.0.0/0` and `::/128` masks. 
+The solution is to *cork* a sets in NFT configuration with `0.0.0.0/0` and `::/128` masks. Hence, Nftables treats all IP's as blacklisted. **After wards, while `NFT List` loads the list, also removes `0.0.0.0/0` and `::/128` corks**. 
 
-**Therefore `NFT List` at launch traverses the list and rules to issue warnings about potentially 'opened' rules.**
-
-**When all Set elements are added `NFT List` removes the Cork**
+**`NFT List` at launch traverses the list and rules to issue warnings about potentially 'opened' rules.**
 
 **Notice**, there are only **deny 'lists' that must be 'corked'** in oppose to **access lists that can be empty**.
 
-This has been called **'cork' convention**, below there is a snippet demonstrating idea:
+This has been called **'cork' convention**, below there is a snippet demonstrating idea: 
 ```
 table inet filtering_machine {
     set allow_ip_list {
@@ -148,17 +146,22 @@ table inet filtering_machine {
     }
 }
 ```
-This is also information for the `NFT List` to 'understand' administrates intention. If the list is empty it is interpreted as "allow list". As it's OK to allow traffic from/to an empty set as no harm might happen.
+In example above, by default we tread all forwarded traffic as banned. And also, by default we don't let any IP establishing connection at input.
 
-If the list is a deny list it must be 'corked' with '0.0.0.0/0' or '::/128' as deny list should not be an empty list to don't let all the traffic in!
+Notice, administrators can add extra rules to open access from administrative IPs, that is fixed it Nftables configuration. It ensures access for them in the case if NFT List is not loaded.
+
+### Allow/deny awarnes
+Policy of using cork addresses let `NFT List` to be 'aware' of which list is allow, which deny. This is usefull with 'panic' option described in ["NFT List options"](#nft_list_options).
 
 ### Supported NFT types
-`NFT List` accepts a following set types: 
+`NFT List` accepts a following element types: 
 - `ipv4_addr`
 - `ipv6_addr`
 - `ether_addr`
 
-Details about Set typec can be found in ["Named sets specifications (nftables.org site)"](https://wiki.nftables.org/wiki-nftables/index.php/Sets).
+Details about Set types can be found in ["Named sets specifications (nftables.org site)"](https://wiki.nftables.org/wiki-nftables/index.php/Sets).
+
+## '.list' file format
 
 
 ## Project overview
@@ -174,17 +177,96 @@ The idea is to avoid mixing NFT configuration with resource lists. Instead, keep
 
 Next points describe how to configure NFT, you can also jump straight to Examples.
 
-## NFT sets
 
-TODO: remove
-Note, `timeout` flag of NFT set can be used to define elements to expire automatically. It might be a good feature for a long, constantly being updated lists. More information in [TODO]().
-
-`NFT List` at each boot chceks if lists are propperly sealed. If a ste is bound to drop or reject, but no '0.0.0.0/0 cork' is added, warning is issued.
 
 ## NFT List configuration
-...
+The file format expected by `NFT List` is a text file holding domain name and address list, such as:
+```
+# /etc/nftlists/avaliable/blacklisted_domain.list
 
-## Simple example
+=set inet filter blacklist
+
+bad-domain.xxx.com # don't go there
+your-bank.trustme-login.space # no comment
+# aha ...
+specialoffernow.info
+=end
+```
+
+Comments are marked by `\#` symbol.
+
+### Section marks and directives
+
+Resource list should or can be proceeded by a directives:
+
+**\@set \<family\>|- \<table name\>|- \<set name\>|-**
+
+Indicates NFT target set for filling, addresses placed below this directive will be loaded to an indicated set.
+The directive must define table family, name, and set name. Minus sign (**-**) (`copy sign`) if is used for one or more `\@set`
+parameters instructs to apply previous settings (copy previous parameter) e.g.:
+```
+@set ipv6 - -
+
+# set will apply to: set ipv6 filter allow_outbound
+@set - filter allow_outbound
+
+... addresses ...
+
+# set will apply to: set ipv6 filter allow_inbound
+@set - - allow_inbound
+
+... addresses ...
+```
+
+**\@include \<file name\>**
+
+Include file, file that is to be included must be located inside `/etc/nftlists/included`.
+It does not need to have `.list` extension, it can be compressed, the compression algorithm
+must be indicated by a correct extension: `.gz`, `.zip` ...
+
+**\@query \<selector\>**
+**\@end**
+Do additional DNS query if domain name is encountered, selector indicates query type:
+- **\@query subdomain.** - query also subdomain, e.g.:
+    > **\@query www.**
+
+    also checks `www.` subdomain for each encountered domain in a current set
+
+
+**\@onpanic keep|drop|rise**
+**\@end**
+This directive defines an action in the case of `panic` signal. If such an event happen, probably
+white lists should be discarded from sets while black addresses keeped.
+Panic signal can be issued with:
+> nftlist panic
+
+command.
+
+
+The only required directive is `\@set` that indicates target set. However, 
+file's `\@set` directive can be replaced with a command line `--set` 
+(or short `-s`) option that does the same. In this case target set does 
+not need to be defined in `*.list` configuration file. For more options see command line usage.
+
+
+#### Usage
+Once when `nftlist` Python package is installed systemd or OpenRC service is added to init system and enabled. To star service use: 
+```bash
+service nftlist start
+```
+It can be used from commandline, for details check with: 
+```bash
+nftlist --help
+```
+
+#### Periodic refresh
+`pip install nftlist` also adds script for daily cron tasks. 
+
+#### Panic signal
+In the case of signal that securit branch had occured NFT List can aplly 'panic' policy. This will drop elements from allow lists, replace deny with 'any host'(0.0.0.0/0 and ::/128) addresses and apply `@onpanic` directives.
+
+
+## Examples
 TODO: move to an end
 Simple example can be foundin: [example1.1-workstation.nft](examples/example1.1-workstation.nft) and `NFT List`
 [example1.1-workstation.list](examples/example1.1-workstation.list).
@@ -214,8 +296,6 @@ nftlist.sh update /etc/nftdef/allowed_hosts.list
 ## HowTo Use
 
 
-### Part I: Firewall
-This part explains an interaction of `NFT List` with Nftables user-space tools (firewall).
 
 #### NFT sets
 
@@ -293,100 +373,6 @@ It's administrator's job to define a firewall configuration. `NFT List` is a too
 
 ### Part II: Installation and Configuration
 This part is about how to configure the tool.
-
-#### Installation
-`NFT list` is in an early development phase, there is no packages developed yet, you can install it by unpacking
-release file into `/` directory:
-```bash
-tar -xzvf nfthelper-1.2.9-alpha.tar.gz -C /
-```
-this will simply extract `nftlist.sh` to `/usr/local/bin/` and `nftlist` to `etc/init.d/`.
-
-At this point, only OpenRC is supported (no systemd).
-
-Add nftlist to OpenRC's default runlevel:
-```bash
-rc-update add nftlist default
-```
-To launch `NFT List` simply start the service:
-```bash
-service nftlist start
-```
-this reads configuration from `/etc/nftlists/available/` and loads NFT sets.
-Just after installation as configuration is empty nothing will happen.
-
-
-
-
-
-##### File format
-
-The file format expected by `NFT List` is a text file holding domain/address list, such as:
-```
-# /etc/nftlists/avaliable/blacklisted_domain.list
-
-@set inet filter blacklist
-
-bad-domain.xxx.com # don't go there
-your-bank.login.space # no comment
-# aha ...
-specialoffernow.info
-```
-
-Comments are marked by `\#` symbol.
-
-### Directives
-
-Resource list should or can be proceeded by a directives:
-
-**\@set \<family\>|- \<table name\>|- \<set name\>|-**
-
-Indicates NFT target set for filling, addresses placed below this directive will be loaded to an indicated set.
-The directive must define table family, name, and set name. Minus sign (**-**) (`copy sign`) if is used for one or more `\@set`
-parameters instructs to apply previous settings (copy previous parameter) e.g.:
-```
-@set ipv6 - -
-
-# set will apply to: set ipv6 filter allow_outbound
-@set - filter allow_outbound
-
-... addresses ...
-
-# set will apply to: set ipv6 filter allow_inbound
-@set - - allow_inbound
-
-... addresses ...
-```
-
-**\@query \<selector\>**
-
-Do additional DNS query if domain name is encountered, selector indicates query type:
-- **\@query subdomain.** - query also subdomain, e.g.:
-    > **\@query www.**
-
-    also checks `www.` subdomain for each encountered domain in a current set
-
-**\@include \<file name\>**
-
-Include file, file that is to be included must be located inside `/etc/nftlists/included`.
-It does not need to have `.list` extension, it can be compressed, the compression algorithm
-must be indicated by a correct extension: `.gz`, `.zip` ...
-
-
-**\@onpanic keep|discard**
-
-This directive defines an action in the case of `panic` signal. If such an event happen, probably
-white lists should be discarded from sets while black addresses keeped.
-Panic signal can be issued with:
-> nftlist panic
-
-command.
-
-
-The only required directive is `\@set` that indicates target set. However, 
-file's `\@set` directive can be replaced with a command line `--set` 
-(or short `-s`) option that does the same. In this case target set does 
-not need to be defined in `*.list` configuration file. For more options see command line usage.
 
 ## Command line
 
