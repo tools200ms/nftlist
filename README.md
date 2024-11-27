@@ -82,6 +82,7 @@ Option `--download` downloads pre-defined lists that can be used for restricting
     └── nitropack
         └── nitropack-ipv4.list
 ```
+### `avaliable` and `enabled` locations
 **Directory `available` is designated for user defined access/deny lists.** 
 Directory `enabled` can only be used for linking to lists in `available`. **As the pattern suggests, `NFT List` loads the lists solely from the `enabled` directory**.
 
@@ -89,8 +90,13 @@ List files are required to have a `.list` extension, and link files in `enabled`
 
 Files `*.list` contain defined resources, potential comments, but also `section marks` and `directives` (details in section ["File Format"](#file-format)). One of the directives is `@include` that allows on inclusion of pre-defined lists from services such as GitHub. These lists are located under `included` directory.
 
-**Location `included/_local` is intended for dropping a large 'user-defined' lists'. That are later 'included' with `@include` directive (in `enabled/` defined list). To activate a list, it must be enabled by creating a symbolic link in the enabled directory.**
+### `included` location
 
+**Location `included/_user` is intended for dropping a large 'user-defined' lists'. That are later 'included' with `@include` directive (in `enabled/` defined list). To activate a list, it must be enabled by creating a symbolic link in the enabled directory.**
+
+**User defined large and dynamic lists located under 'included/_user' can have following extensions: .txt, .bz2, .gz, .xz.**
+
+**`NFT List` accepts compressed lists, but extension must fit to used compression algorithm.**
 
 ## Firewall side (NFT sets)
 On NFT side (by default in `/etc/nftables.nft` and `/etc/nftables.d/`) administrator defines firewall configuration. Configuration shall include sets, where `NFT List` attaches appropriate resources. See examples in [Examples section](#examples).
@@ -150,7 +156,7 @@ In example above, by default we tread all forwarded traffic as banned. And also,
 
 Notice, administrators can add extra rules to open access from administrative IPs, that is fixed it Nftables configuration. It ensures access for them in the case if NFT List is not loaded.
 
-### Allow/deny awarnes
+### Allow/deny awareness
 Policy of using cork addresses let `NFT List` to be 'aware' of which list is allow, which deny. This is usefull with 'panic' option described in ["NFT List options"](#nft_list_options).
 
 ### Supported NFT types
@@ -161,7 +167,72 @@ Policy of using cork addresses let `NFT List` to be 'aware' of which list is all
 
 Details about Set types can be found in ["Named sets specifications (nftables.org site)"](https://wiki.nftables.org/wiki-nftables/index.php/Sets).
 
-## '.list' file format
+## File format for `.list`
+File format of `.list` is as follows: 
+```
+# /etc/nftlists/avaliable/blacklisted_domain.list
+
+=set inet filter blacklist
+
+bad-domain.xxx.com # don't go there
+your-bank.trustme-login.space # no comment
+# aha ...
+specialoffernow.info
+
+@include _user/large_blacklist
+=end
+```
+
+Details on the syntax and structure are provided below.
+
+### Section marks
+`Section mark` can be thought of as a procedure, or function, while Nftables set as function's prototype. `Section mark` declaration refers unambiguously to a specific set with a following syntax:
+
+> **=set \<family\> \<table name\> \<set name\>**
+
+Section must be ended with the following mark: 
+
+> **=end**
+
+In between **=set** and **=end** user defines resource list, but also `directives` specialising list properties.
+
+### Directives
+Directives start with **\@** and are used to specify properties (overwrite defaults) and extend capabilities. Directives are defined inside section. Directives must be defined right after `=set`, except `@include` that can be located anywhere (mixed with resource list).
+
+#### \@include
+**\@include \<file name\>**
+
+This directive extends resource definition by external list. It is used to include well known internet resources, such as Github IP's, but also large or being the subject of regular updates user defined lists.
+
+**\<file name\>** is a path to file relative to `/etc/nftlists/included`. See details about [configuration directories](#configuration).
+
+#### @query
+Query directive instructs `NFT List` to also query domain subdomains, the syntax is as follows: 
+> **@query \<subdomain 1\> \<subdomain 2\>**
+
+Example usage is: 
+**@query www mail**
+
+#### @onpanic
+Directive `onpanic` overwrites default onpanic behaviour that is determinated by `NFT List` basing on [Cork convention](#set-corks-convention) and rule policies where set has been used. Syntax is as follows: 
+
+**\@onpanic keep|drop|rise**
+
+**keep** - makes `NFT List` to 'keep' the list if 'panic' signal is risen.
+**drop** - makes `NFT List` to 'discard' the list if 'panic' signal is risen.
+**rise** - makes `NFT List` to 'add' the list to the set if 'panic' signal is risen. Important notice is that the list will not be loaded onder 'normal' circumstances. List with value 'rise' of 'onpanic' is loaded only in the case of 'panic' signal.
+
+`panic` signal is rised with: **nftlist panic** command.
+
+#### @timeout
+Directive 'timeout' can be used only if Nftables set has 'timeout' flag defined. `@timeout` overwrites a default timeout. the syntax is as follows: 
+> **@timeout <time in format: ?h?m?s>**
+
+Example usage: 
+> **@timeout 24h15m, @timeout 30s, @timeout 1h**
+
+## Behaviour
+
 
 
 ## Project overview
@@ -177,76 +248,6 @@ The idea is to avoid mixing NFT configuration with resource lists. Instead, keep
 
 Next points describe how to configure NFT, you can also jump straight to Examples.
 
-
-
-## NFT List configuration
-The file format expected by `NFT List` is a text file holding domain name and address list, such as:
-```
-# /etc/nftlists/avaliable/blacklisted_domain.list
-
-=set inet filter blacklist
-
-bad-domain.xxx.com # don't go there
-your-bank.trustme-login.space # no comment
-# aha ...
-specialoffernow.info
-=end
-```
-
-Comments are marked by `\#` symbol.
-
-### Section marks and directives
-
-Resource list should or can be proceeded by a directives:
-
-**\@set \<family\>|- \<table name\>|- \<set name\>|-**
-
-Indicates NFT target set for filling, addresses placed below this directive will be loaded to an indicated set.
-The directive must define table family, name, and set name. Minus sign (**-**) (`copy sign`) if is used for one or more `\@set`
-parameters instructs to apply previous settings (copy previous parameter) e.g.:
-```
-@set ipv6 - -
-
-# set will apply to: set ipv6 filter allow_outbound
-@set - filter allow_outbound
-
-... addresses ...
-
-# set will apply to: set ipv6 filter allow_inbound
-@set - - allow_inbound
-
-... addresses ...
-```
-
-**\@include \<file name\>**
-
-Include file, file that is to be included must be located inside `/etc/nftlists/included`.
-It does not need to have `.list` extension, it can be compressed, the compression algorithm
-must be indicated by a correct extension: `.gz`, `.zip` ...
-
-**\@query \<selector\>**
-**\@end**
-Do additional DNS query if domain name is encountered, selector indicates query type:
-- **\@query subdomain.** - query also subdomain, e.g.:
-    > **\@query www.**
-
-    also checks `www.` subdomain for each encountered domain in a current set
-
-
-**\@onpanic keep|drop|rise**
-**\@end**
-This directive defines an action in the case of `panic` signal. If such an event happen, probably
-white lists should be discarded from sets while black addresses keeped.
-Panic signal can be issued with:
-> nftlist panic
-
-command.
-
-
-The only required directive is `\@set` that indicates target set. However, 
-file's `\@set` directive can be replaced with a command line `--set` 
-(or short `-s`) option that does the same. In this case target set does 
-not need to be defined in `*.list` configuration file. For more options see command line usage.
 
 
 #### Usage
@@ -293,10 +294,6 @@ nftlist.sh update /etc/nftdef/allowed_hosts.list
 
 
 
-## HowTo Use
-
-
-
 #### NFT sets
 
 NFT comes with [NFT sets](https://wiki.nftables.org/wiki-nftables/index.php/Sets) that allow on grouping elements of the same type together.
@@ -313,28 +310,20 @@ table inet user_defined_table_name {
 }
 ```
 
-Sets can be anonymous, or named. Above example defines named (`user_defined_set_name`) set. 
-To have `NFT List` to feed sets with a data it must be obviously named.
+## Nftables set flags and `NFT List` behaviour
 
-NFT defines various types of elements, for instance *ipv4_addr* is for keeping IPv4 addresses, 
-*ether_addr* for mac addresses while *ifname* is to group network interfaces (e.g. enp7s0, br0).
+Nftables sets can be complemented by flags that specifies more precisely behaviour and format of an elements. `NFT List` bahaves can change is one of the flags is applied.
 
-`NFT List` operates on a Sets of the following types:
-* *ipv4_addr* for IPv4,
-* *ipv6_addr* for IPv6 elements
-* *ether_addr* for mac addresses
+| Set Flag        | Description                                                            |
+|-----------------|------------------------------------------------------------------------|
+| *timeout*       | Specifies timeout when a set element is set for expiration<sup>1</sup> |
+| If `timeout` flag is defined `NFT List` sets default timeout that is 24h15m, or the time that has been defined by `@timeout` directive. |
+| C                               | D                                                                      |
 
-In this document, the list of any type will be defined as `resource list`.
 
-Nftables also provides `typeof` keyword that as documentation states:
+<sup>1</sup> Note that various elements within one set can have a different timeouts
 
-> allows you to use a high level expression, then let nftables resolve the base type for you
 
-`NFT List` can operate **only** on sets declared with `type`. Trial of loading data into `typeof`, 
-or `type` but of not supported type will fail.
-
-Set can be complemented by flags that specifies more precisely behaviour and format of an elements:
-* *timeout* - specifies timeout when a set element is set for expiration, note that various elements within one set can have a different timeouts
 * *constant* - set content can not be changed once when it has been bound to a rule
 * *interval* - set elements can be intervals, that is IP addresses with network prefixes or address ranges in format: *<first addr>-<last addr>*, e.g.
 `192.168.100-192.168.199`
