@@ -20,18 +20,27 @@ It implements the "available-enabled pattern" configuration (refer to the [Confi
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Configuration](#configuration)
-- [Firewall side (NFT sets)](#firewall_side__NFT_sets_)
-  - [NFT sets](#nft-sets)
-  - [NFT Structure](#nft-structure)
-  - [Part II: Installation and Configuration](#part-ii-installation-and-configuration)
-    - [Installation](#installation)
-    - [Configuration files and directories](#configuration-files-and-directories)
-      - [File format](#file-format)
+  - ['avaliable' and 'enabled' locations](#avaliable-and-enabled-locations)
+  - ['included' location](#included-location)
+- [Firewall side (NFT sets)](#firewall-side-NFT-sets_)
+  - ["Non-atomic" issue](#non-atomic-issue)
+  - [Set Corks convention](#set-corks-convention)
+  - [Allow/deny awareness](#allowdeny-awareness)
+  - [Supported NFT types](#supported-nft-types)
+  - [DNS quering](#dns-quering)
+  - [File format for '.list'](#file-format-for-list)
+    - [Section marks](#section-marks)
     - [Directives](#directives)
-    - [Command line](#command-line)
-    - [Periodic runs](#periodic-runs)
-    - [White List example](#white-list-example)
-  - [Troubleshooting](#troubleshooting)
+      - [@include](#include)
+      - [@query](#query)
+      - [@onpanic](#onpanic)
+      - [@timeout](#timeout)
+    - [Comments](#comments)
+- [Nftables set flags and 'NFT List' behaviour](##nftables-set-flags-and-nft-list-behaviour)
+  - [Flag timeout](#flag-timeout)
+  - [Flag interval](#flag-interval)
+- [Refreshing lists](#refreshing-lists)
+- [Troubleshooting](#troubleshooting)
 - [Summary](#summary)
 - [Useful links](#useful-links)
 
@@ -156,8 +165,8 @@ In example above, by default we tread all forwarded traffic as banned. And also,
 
 Notice, administrators can add extra rules to open access from administrative IPs, that is fixed it Nftables configuration. It ensures access for them in the case if NFT List is not loaded.
 
-### Allow/deny awareness
-Policy of using cork addresses let `NFT List` to be 'aware' of which list is allow, which deny. This is usefull with 'panic' option described in ["NFT List options"](#nft_list_options).
+### Allow/deny distinction
+Policy of using cork addresses let `NFT List` to distinct which list is allow, which deny. This is useful with 'panic' option described in ["NFT List options"](#nft_list_options)z.
 
 ### Supported NFT types
 `NFT List` accepts a following element types: 
@@ -168,10 +177,6 @@ Policy of using cork addresses let `NFT List` to be 'aware' of which list is all
 **NOTICE: In NFT there is no type that would match both: `ipv4_addr` and `ipv6_addr`. Therefore, one set can not hold mixed IPv4 and IPv6 elements.**
 
 Details about Set types can be found in ["Named sets specifications (nftables.org site)"](https://wiki.nftables.org/wiki-nftables/index.php/Sets).
-
-## Dns quering
-If set has been defined of a `type ipv4_addr` NFT-List will resolve `A` DNS records to acquire IP.
-If set is of `type ipv6_addr` `AAAA` DNS records are queried.
 
 ## File format for `.list`
 File format of `.list` is as follows: 
@@ -251,60 +256,34 @@ Comments in `.list` are marked with `#` symgol. Comments can takeentire line, as
 #end
 ```
 
-## Nftables set flags and `NFT List` behaviour
+## `NFT List` Characteristics
+
+### DNS querying
+If set has been defined of a `type ipv4_addr` NFT-List will resolve `A` DNS records to acquire IP.
+If set is of `type ipv6_addr` `AAAA` DNS records are queried.
+
+
+### Nftables set flags
 
 Nftables sets can be featured by flags that specifies more precisely behaviour and format of an elements. Below sub-sections describe how `NFT List` behaves if certain flags are set.
 
-### Flag timeout
+#### Flag timeout
 Specifies timeout when a set element is set for expiration. 
 
 **Note** that various elements within one set can have a different timeouts.
 
 If `timeout` flag is defined `NFT List` sets default timeout that is 24h15m, or the time that has been defined by `@timeout` directive.
 
-### Flag interval
+* *timeout* - `NFT List` resolves IP addresses and adds them to 'timeout set' setting up a default timeout that is 3 days. If the list is refreshed, timeout is updated. If given domain name does not resolve to a certain IP anymore, it will simpli expire and eventually disappear from the set.
+
+#### Flag interval
 Set elements can be intervals, that is IP addresses with network prefixes or address ranges in format: *<first addr>-<last addr>*, e.g. `192.168.100-192.168.199`.
 
 `NFT List` extends accepted format by network prefixes and address ranges.
 
-## Refreshing lists
-One of the aims for `NFT List` is keeping resource list upto date. In the case of domain names, resolved IP's should reflect actual state of DNS system. As the IP set in `A` and `AAAA` records can change, `NFT List` checks DNS periodically for changes.
-
-See ["'Refresh' option in Usage section"](#periodic_refresh).
-
-Algorithm for refreshing lists vary depanding if timeout flag is set, or not.
-### Refreshing 'not-timeout' sets
-If Set is a 'typical', 'no time-out' set, refresh operation will synchronise actual list with set elements. After all there will be 1-to-1 mapping. IP's that has been deleted from list, will be deleted from set, new IP's will be added.
-
-In the case of domain names IP's that has no reference from DNS will be removed, new IP's will be added.
-
-### Refreshing 'timeout' sets
-If time-out is set, refreshing is much faster as `NFT List` adds a new resources with a default or `@timeout` defined timeout. If the IP already exists its timeout is reset to default or `@timeout` defined.
-Elements that does not exist anymore eventually simply expire. This is more suitable for a large lists, as there is no need for exact comparison to find expired element.
-
-
-`NFT List` validates these flags and acts as follows:
-* *timeout* - `NFT List` resolves IP addresses and adds them to 'timeout set' setting up a default timeout that is 3 days. If the list is refreshed, timeout is updated. If given domain name does not resolve to a certain IP anymore, it will simpli expire and eventually disappear from the set.
-
-
-### Flag auto-merge
+#### Flag auto-merge
 `NFT List` acknowledges `auto-merge` set flag. `auto-merge` comes together with an `interval` flag. If flag is on, IP addresses or networks will be merged into intervals if suitable. For instance, adding networks `10.2.0.0/16` and `11.3.0.0/16` into `auto-merge` set results in one entry that is: `10.2.0.0/15`. 
 If there is the chance that IP addresses might 'stick' or IP ranges might have a common part, `auto-merge` would improve filtering efficiency after all.
-
-
-## Project overview
-
-Modern Linux systems use NFT firewall - successor of Iptables. It comes with a new `C structure` alike configuration format ([look: NFT in short 🠋](#nft-in-short)).
-
-Firewall is a crucial security element, thus its configuration should be kept straightforward.
-
-TODO: move it configuration: 
-The `NFT List` uses "available-enabled pattern" ([look: Configuration files and directories 🠋🠋🠋](#configuration-files-and-directories)) configuration, that is well known from Apache or Nginx. List resource, such as IPs are read from simple 'line-delimited' text files.
-
-The idea is to avoid mixing NFT configuration with resource lists. Instead, keep them separate, similar to good program design where algorithms and data remain distinct and are not intertwined.
-
-Next points describe how to configure NFT, you can also jump straight to Examples.
-
 
 ## Usage
 Once when `nftlist` Python package is installed systemd or OpenRC service is added to init system and enabled. To star service use: 
@@ -316,6 +295,22 @@ It can be used from commandline, for details check with:
 nftlist --help
 ```
 
+### Refreshing lists
+One of the aims for `NFT List` is keeping resource list upto date. In the case of domain names, resolved IP's should reflect actual state of DNS system. As the IP set in `A` and `AAAA` records can change, `NFT List` checks DNS periodically for changes.
+
+See ["'Refresh' option in Usage section"](#periodic_refresh).
+
+Algorithm for refreshing lists vary depanding if timeout flag is set, or not.
+#### Refreshing 'no-timeout' sets
+If Set is a 'typical', 'no time-out' set, refresh operation will synchronise actual list with set elements. After all there will be 1-to-1 mapping. IP's that has been deleted from list, will be deleted from set, new IP's will be added.
+
+In the case of domain names IP's that has no reference from DNS will be removed, new IP's will be added.
+
+#### Refreshing 'timeout' sets
+If time-out is set, refreshing is much faster as `NFT List` adds a new resources with a default or `@timeout` defined timeout. If the IP already exists its timeout is reset to default or `@timeout` defined.
+Elements that does not exist anymore eventually simply expire. This is more suitable for a large lists, as there is no need for exact comparison to find expired element.
+
+
 ### Periodic refresh
 `pip install nftlist` also adds script for daily cron tasks. 
 `A` or `AAAA` records can change over time, therefore firewall shall be updated periodically.
@@ -326,7 +321,7 @@ sync with DNS entries.
 ### Panic signal
 In the case of signal that securit branch had occured NFT List can aplly 'panic' policy. This will drop elements from allow lists, replace deny with 'any host'(0.0.0.0/0 and ::/128) addresses and apply `@onpanic` directives.
 
-## Manual run
+### Manual run
 By default, configuration from `/etc/nftlists/available/` is loaded, however it can be overwritten:
 ```bash
 nftlist update /etc/my_list.list
