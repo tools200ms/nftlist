@@ -9,7 +9,7 @@ It extends [Linux NFT (Nftables)](https://en.wikipedia.org/wiki/Nftables) firewa
 
 It implements the "available-enabled pattern" configuration (refer to the [Configuration section](#configuration)), commonly used in Apache or Nginx, allowing administrators to manage system conveniently.
 
-**This tool enables administrators to separate the NFT firewall configuration logic (defined in `/etc/nftables.*`) from its data - that is access/deny lists.**
+**This tool enables administrators to separate the NFT firewall configuration logic (usually defined in `/etc/nftables.*`) from its data - that is access/deny lists.**
 
 `NFT List` resolves domain names by default via CloudFlare's `1.1.1.1` DOH (DNS over HTTP(s)). The tool is implemented in Python.
 
@@ -23,30 +23,37 @@ It implements the "available-enabled pattern" configuration (refer to the [Confi
   - ['avaliable' and 'enabled' locations](#avaliable-and-enabled-locations)
   - ['included' location](#included-location)
 - [Firewall side (NFT sets)](#firewall-side-NFT-sets_)
-  - ["Non-atomic" issue](#non-atomic-issue)
-  - [Set Corks convention](#set-corks-convention)
-  - [Allow/deny awareness](#allowdeny-awareness)
+  - ["Non-atomic" update issue](#non-atomic-update-issue)
+  - ['Set Corks' convention](#set-corks-convention)
   - [Supported NFT types](#supported-nft-types)
-  - [DNS quering](#dns-quering)
-  - [File format for '.list'](#file-format-for-list)
-    - [Section marks](#section-marks)
-    - [Directives](#directives)
-      - [@include](#include)
-      - [@query](#query)
-      - [@onpanic](#onpanic)
-      - [@timeout](#timeout)
-    - [Comments](#comments)
-- [Nftables set flags and 'NFT List' behaviour](##nftables-set-flags-and-nft-list-behaviour)
-  - [Flag timeout](#flag-timeout)
-  - [Flag interval](#flag-interval)
-- [Refreshing lists](#refreshing-lists)
+- [List file format](#list-file-format)
+  - [Section marks](#section-marks)
+  - [Directives](#directives)
+    - [@include](#include)
+    - [@query](#query)
+    - [@onpanic](#onpanic)
+    - [@timeout](#timeout)
+  - [Comments](#comments)
+- [`NFT List` characteristics](#nft-list-characteristics)
+  - [DNS querying](#dns-querying)
+  - [Nftables set flags](#nftables-set-flags)
+    - [Flag timeout](#flag-timeout)
+    - [Flag interval](#flag-interval)
+    - [Flag auto-merge](#flag-auto-merge)
+  - [Refreshing lists](#refreshing-lists)
+    - [Refreshing 'no-timeout' sets](#refreshing-no-timeout-sets)
+    - [Refreshing 'timeout' sets](#refreshing-timeout-sets)
+- [Usage](#usage)
+  - [Periodic refresh](#periodic-refresh)
+  - [Panic signal](#panic-signal)
+  - [Manual run](#manual-run)
+- [Examples](#examples)
 - [Troubleshooting](#troubleshooting)
 - [Summary](#summary)
 - [Useful links](#useful-links)
 
 
 ## Requirements
-
 The `NFT List` requires Python 3 and a configured NFT firewall. Administrators define NFT sets within the firewall, which are populated with the appropriate lists by `NFT List`.
 
 **Short NOTICE: In this document network resources handled by `NFT List` (domain names, IPv4/IPv6 and macs) will be referred simply as 'resources'.**
@@ -64,7 +71,7 @@ Option `--download` downloads pre-defined lists that can be used for restricting
 [here](https://github.com/tools200ms/nftlist/tree/release/lists).
 
 ## Configuration
-`Nft List` configuration is in `/etc/nftlists/`. The file-directory structure is as follows: 
+`Nft List` configuration is by default located in `/etc/nftlists/`. The file-directory structure looks as follows: 
 ```bash
 # tree /etc/nftlists/
 /etc/nftlists/
@@ -93,27 +100,30 @@ Option `--download` downloads pre-defined lists that can be used for restricting
 ```
 ### `avaliable` and `enabled` locations
 **Directory `available` is designated for user defined access/deny lists.** 
-Directory `enabled` can only be used for linking to lists in `available`. **As the pattern suggests, `NFT List` loads the lists solely from the `enabled` directory**.
+Directory `enabled` can only be used for linking to lists in `available`. **As the pattern indicates, `NFT List` loads the lists solely from the `enabled` directory**.
 
 List files are required to have a `.list` extension, and link files in `enabled` must share the same basename as their corresponding source files. `NFT List` does not perform recursive searches; therefore, paths like *enabled/directory/link_to_file_in_available.list* are ignored with a warning.
 
-Files `*.list` contain defined resources, potential comments, but also `section marks` and `directives` (details in section ["File Format"](#file-format)). One of the directives is `@include` that allows on inclusion of pre-defined lists from services such as GitHub. These lists are located under `included` directory.
+Files `*.list` contain defined resources, potential comments, but also `section marks` and `directives` (details in section ["List file format"](#list-file-format)). One of the directives is `@include` that allows on inclusion of pre-defined lists from services such as GitHub. These lists are located under `included` directory.
 
 ### `included` location
 
-**Location `included/_user` is intended for dropping a large 'user-defined' lists'. That are later 'included' with `@include` directive (in `enabled/` defined list). To activate a list, it must be enabled by creating a symbolic link in the enabled directory.**
+**Location `included/_user` is intended for storing a 'large and dynamic user-defined' lists. These lists are 'included' with `@include` directive (from `.list` files in `available/`).**
 
-**User defined large and dynamic lists located under 'included/_user' can have following extensions: .txt, .bz2, .gz, .xz.**
+**Files in `included/_user` shall be a text files containing one resource per line with an optional comments starting with '#' and permissible empty lines.**
 
-**`NFT List` accepts compressed lists, but extension must fit to used compression algorithm.**
+Multiple lists published online (free and paied) provide lists in this format [see "Open lists" in " Useful links"](#useful-links). Hence, resources can be easly added to a firewall.
+
+**These lists can have following extensions: .txt, .bz2, .gz, .xz.**
+
+`NFT List` accepts compressed lists, but extension must fit to used compression algorithm.
 
 ## Firewall side (NFT sets)
-On NFT side (by default in `/etc/nftables.nft` and `/etc/nftables.d/`) administrator defines firewall configuration. Configuration shall include sets, where `NFT List` attaches appropriate resources. See examples in [Examples section](#examples).
+On 'nftables' side (by default in `/etc/nftables.nft` and `/etc/nftables.d/`) administrator defines firewall configuration. Configuration shall include sets, where `NFT List` attaches appropriate resources. See examples in ["Examples" section](#examples).
 
 `NFT List`  **does not modify the firewall configuration;** it strictly **manages ONLY elements** within NFT sets.
 
-
-### "Non-atomic" issue
+### "Non-atomic" update issue
 Advantage of NFT over IPtables is 'atomic' operation. The command `nft -f <filename>` loads configuration 'on a side'. When configfile is successfully validated NFT switches in an atomic manner to a new setup. This means there is no a single moment when firewall is partially configured.
 As `NFT List` acts after `nft` command, this might bring following security issues: 
 - very short time of security violation (such as open access from denied IPs)
@@ -121,12 +131,12 @@ As `NFT List` acts after `nft` command, this might bring following security issu
 
 The first case is difficult to exploit (but still possible), it is due to a short time that is after NFT setup, but before lists are loaded. The second that is a very serious is the result of no-loading `NFT List` due to some kind of system error. 
 
-### Set Corks convention
-The solution is to *cork* a sets in NFT configuration with `0.0.0.0/0` and `::/128` masks. Hence, Nftables treats all IP's as blacklisted. **After wards, while `NFT List` loads the list, also removes `0.0.0.0/0` and `::/128` corks**. 
+### 'Set Corks' convention
+The solution is to *cork* a sets in NFT configuration with `0.0.0.0/0` and `::/128` masks. Hence, Nftables treats all IP's as blacklisted. **`NFT List` removes `0.0.0.0/0` and `::/128` corks once when the lists are loaded**.
 
-**`NFT List` at launch traverses the list and rules to issue warnings about potentially 'opened' rules.**
+**`NFT List` at launch traverses NFT chains and rules to issue warnings about potentially 'opened' rules, suggesting to add 'corks'.**
 
-**Notice**, there are only **deny 'lists' that must be 'corked'** in oppose to **access lists that can be empty**.
+**While `NFT List` is traversing chains and rules it also determinates which list is 'Allow', which 'Deny'. This is used with 'panic' option described in ["Panic signal" in "Usage" section](#panic-signal).**
 
 This has been called **'cork' convention**, below there is a snippet demonstrating idea: 
 ```
@@ -141,6 +151,13 @@ table inet filtering_machine {
         elements = { 0.0.0.0/0 }
     }
     
+    # Emergancy access, for the case if 
+    # 'NFT List' does not start.
+    set administrative_ips {
+        type ipv4_addr;
+        elements = { 203.0.113.25, 93.184.215.14 }
+    }
+    
     table inet machine {
       .......
       chain input {
@@ -149,6 +166,8 @@ table inet filtering_machine {
         # for 'allow' list ampty set is OK
          iifname eth0 tcp dport 22 \
                         ip  saddr @allow_ip_list ct state new accept
+         iifname eth0 tcp dport 22 \
+                        ip  saddr @administrative_ips ct state new accept
     }
     .......
     chain forward {
@@ -161,15 +180,14 @@ table inet filtering_machine {
     }
 }
 ```
-In example above, by default we tread all forwarded traffic as banned. And also, by default we don't let any IP establishing connection at input.
+In example above, by default we tread all forwarded traffic as banned (ban_ip_list). Also, by default we don't let any IP establishing connection at input (allow_ip_list).
 
-Notice, administrators can add extra rules to open access from administrative IPs, that is fixed it Nftables configuration. It ensures access for them in the case if NFT List is not loaded.
+**Notice**, there are only **deny 'lists' that must be 'corked'** in oppose to **access lists that can be empty**.
 
-### Allow/deny distinction
-Policy of using cork addresses let `NFT List` to distinct which list is allow, which deny. This is useful with 'panic' option described in ["NFT List options"](#nft_list_options)z.
+Notice, administrators can add extra rules to open access from administrative IPs. It ensures access for them in the case if NFT List has not loaded the lists (see `administrative_ips` in above snippet).
 
 ### Supported NFT types
-`NFT List` accepts a following element types: 
+`NFT List` accepts a following Nftables element types: 
 - `ipv4_addr`
 - `ipv6_addr`
 - `ether_addr`
@@ -178,7 +196,7 @@ Policy of using cork addresses let `NFT List` to distinct which list is allow, w
 
 Details about Set types can be found in ["Named sets specifications (nftables.org site)"](https://wiki.nftables.org/wiki-nftables/index.php/Sets).
 
-## File format for `.list`
+## List file format
 File format of `.list` is as follows: 
 ```
 # /etc/nftlists/avaliable/blacklisted_domain.list
@@ -195,6 +213,7 @@ specialoffernow.info
 ```
 
 Details on the syntax and structure are provided below.
+**Notice: Domain names and IP addresses can be mixed - can coexist in one list.**
 
 ### Section marks
 `Section mark` can be thought of as a procedure, or function, while Nftables set as function's prototype. `Section mark` declaration refers unambiguously to a specific set with a following syntax:
@@ -205,33 +224,33 @@ Section must be ended with the following mark:
 
 > **=end**
 
-In between **=set** and **=end** user defines resource list, but also `directives` specialising list properties.
+In between **=set** and **=end** user defines resource list, but also `directives` specifying list properties.
 
 ### Directives
-Directives start with **\@** and are used to specify properties (overwrite defaults) and extend capabilities. Directives are defined inside section. Directives must be defined right after `=set`, except `@include` that can be located anywhere (mixed with resource list).
+Directives start with `@` and are used to specify properties (overwrite defaults) and extend capabilities. Directives are defined inside section. Directives must be defined right after `=set`, except `@include` that can be located anywhere (mixed with resource list).
 
 #### @include
 **\@include \<file name\>**
 
-This directive extends resource definition by external list. It is used to include well known internet resources, such as Github IP's, but also large or being the subject of regular updates user defined lists.
+This directive extends resource definition by external list. It is used to include well known internet resources, such as Github IP's. But also large or being the subject of regular updates user defined lists.
 
-**\<file name\>** is a path to file relative to `/etc/nftlists/included`. See details about [configuration directories](#configuration).
+**\<file name\>** is a path to file relative to `/etc/nftlists/included`. See details about ["Configuration" section](#configuration).
 
 #### @query
-Query directive instructs `NFT List` to also query domain subdomains, the syntax is as follows: 
+In the case of domain name list, query directive instructs `NFT List` to also query subdomains, the syntax is as follows: 
 > **@query \<subdomain 1\> \<subdomain 2\>**
 
 Example usage is: 
 **@query www mail**
 
 #### @onpanic
-Directive `onpanic` overwrites default onpanic behaviour that is determinated by `NFT List` basing on [Cork convention](#set-corks-convention) and rule policies where set has been used. Syntax is as follows: 
+Directive `onpanic` overwrites default onpanic behaviour that is determinated by `NFT List` basing on ['Set Corks' convention](#set-corks-convention) and rule policies where set has been referred to. Syntax is as follows: 
 
 **\@onpanic keep|drop|rise**
 
 **keep** - makes `NFT List` to 'keep' the list if 'panic' signal is risen.
 **drop** - makes `NFT List` to 'discard' the list if 'panic' signal is risen.
-**rise** - makes `NFT List` to 'add' the list to the set if 'panic' signal is risen. Important notice is that the list will not be loaded onder 'normal' circumstances. List with value 'rise' of 'onpanic' is loaded only in the case of 'panic' signal.
+**rise** - makes `NFT List` to 'add' the list to the set if 'panic' signal is risen. **Important notice: ** the list will not be loaded under 'normal' circumstances. List with value 'rise' of 'onpanic' is loaded only in the case of 'panic' signal.
 
 `panic` signal is rised with: **nftlist panic** command.
 
@@ -239,11 +258,11 @@ Directive `onpanic` overwrites default onpanic behaviour that is determinated by
 Directive 'timeout' can be used only if Nftables set has 'timeout' flag defined. `@timeout` overwrites a default timeout. the syntax is as follows: 
 > **@timeout <time in format: ?h?m?s>**
 
-Example usage: 
+Example usages: 
 > **@timeout 24h15m, @timeout 30s, @timeout 1h**
 
 ### Comments
-Comments in `.list` are marked with `#` symgol. Comments can takeentire line, as well as be placed at the end of command: 
+Comments in `.list` starts with `#` symbol. Comments can take entire line, as well as be placed at the end of command or resource: 
 ```
 # This is the comment
 =set inet filter allow
@@ -253,40 +272,61 @@ Comments in `.list` are marked with `#` symgol. Comments can takeentire line, as
 192.168.3.50-192.168.3.100
 
 10.0.2.2  # allow this IP
-#end
+=end # Endo of 'inet filter allow'
 ```
 
-## `NFT List` Characteristics
+## `NFT List` characteristics
+This section describes how `NFT List` handles various tasks and Nftables settings.
 
 ### DNS querying
+
 If set has been defined of a `type ipv4_addr` NFT-List will resolve `A` DNS records to acquire IP.
 If set is of `type ipv6_addr` `AAAA` DNS records are queried.
 
+By default Cludflare `1.1.1.1` DOH (DNS over HTTP(s)) is used.
 
 ### Nftables set flags
 
-Nftables sets can be featured by flags that specifies more precisely behaviour and format of an elements. Below sub-sections describe how `NFT List` behaves if certain flags are set.
+Nftables sets can be featured by flags that specifies more precisely behaviour and format of an elements. This subsection describes how `NFT List` behaves if certain flags are set.
 
 #### Flag timeout
 Specifies timeout when a set element is set for expiration. 
 
 **Note** that various elements within one set can have a different timeouts.
 
-If `timeout` flag is defined `NFT List` sets default timeout that is 24h15m, or the time that has been defined by `@timeout` directive.
-
-* *timeout* - `NFT List` resolves IP addresses and adds them to 'timeout set' setting up a default timeout that is 3 days. If the list is refreshed, timeout is updated. If given domain name does not resolve to a certain IP anymore, it will simpli expire and eventually disappear from the set.
+If `timeout` flag is defined `NFT List` sets **default timeout that is 24h15m**, or the time that has been defined by `@timeout` directive.
 
 #### Flag interval
 Set elements can be intervals, that is IP addresses with network prefixes or address ranges in format: *<first addr>-<last addr>*, e.g. `192.168.100-192.168.199`.
 
-`NFT List` extends accepted format by network prefixes and address ranges.
+If Set has defined `interval` flag, `NFT List` will also accept in `.list` files prefixed addresses and IP ranges.
 
 #### Flag auto-merge
 `NFT List` acknowledges `auto-merge` set flag. `auto-merge` comes together with an `interval` flag. If flag is on, IP addresses or networks will be merged into intervals if suitable. For instance, adding networks `10.2.0.0/16` and `11.3.0.0/16` into `auto-merge` set results in one entry that is: `10.2.0.0/15`. 
 If there is the chance that IP addresses might 'stick' or IP ranges might have a common part, `auto-merge` would improve filtering efficiency after all.
 
+### Refreshing lists
+In the case of change, Nftables set elements must be re-synchronized with updates, particularly it applies to:
+- updates in `included/_user`
+- changes in DNS system
+
+Command: 
+> nftlist refresh
+
+Will re-read list, re-check DNS responses (if domain names defined) and update sets if necessary.
+
+See ["'Refresh' option in Usage section"](#periodic_refresh).
+
+Depending on if `timeout` flag is set or not, updates wotk bit different: 
+#### Refreshing 'no-timeout' sets
+If Set is a 'typical', 'no time-out' set, update operation will synchronise actual list and DNS state with set elements "1 to 1". IP's that has been deleted from list, will be deleted from set, new IP's will be added.
+
+#### Refreshing 'timeout' sets
+If time-out is set, refreshing is much faster as `NFT List` adds a new resources with a default or `@timeout` defined timeout. If the IP already exists its timeout is reset to default or `@timeout` defined.
+Elements that does not exist anymore eventually simply expire. This is more suitable for a large lists, as there is no need for exact comparison to finding expired elements.
+
 ## Usage
-Once when `nftlist` Python package is installed systemd or OpenRC service is added to init system and enabled. To star service use: 
+You can start `nftlist` as system service with: 
 ```bash
 service nftlist start
 ```
@@ -295,31 +335,12 @@ It can be used from commandline, for details check with:
 nftlist --help
 ```
 
-### Refreshing lists
-One of the aims for `NFT List` is keeping resource list upto date. In the case of domain names, resolved IP's should reflect actual state of DNS system. As the IP set in `A` and `AAAA` records can change, `NFT List` checks DNS periodically for changes.
-
-See ["'Refresh' option in Usage section"](#periodic_refresh).
-
-Algorithm for refreshing lists vary depanding if timeout flag is set, or not.
-#### Refreshing 'no-timeout' sets
-If Set is a 'typical', 'no time-out' set, refresh operation will synchronise actual list with set elements. After all there will be 1-to-1 mapping. IP's that has been deleted from list, will be deleted from set, new IP's will be added.
-
-In the case of domain names IP's that has no reference from DNS will be removed, new IP's will be added.
-
-#### Refreshing 'timeout' sets
-If time-out is set, refreshing is much faster as `NFT List` adds a new resources with a default or `@timeout` defined timeout. If the IP already exists its timeout is reset to default or `@timeout` defined.
-Elements that does not exist anymore eventually simply expire. This is more suitable for a large lists, as there is no need for exact comparison to find expired element.
-
-
 ### Periodic refresh
-`pip install nftlist` also adds script for daily cron tasks. 
-`A` or `AAAA` records can change over time, therefore firewall shall be updated periodically.
-It is advised to add to daily cron `service nftlist reload` so configuration shall be keep in
-sync with DNS entries.
-
+DNS `A` or `AAAA` records can change over time, therefore lists should be refreshed periodically.
+It is advised to add to daily cron `service nftlist refresh` so configuration is keep in sync with DNS entries.
 
 ### Panic signal
-In the case of signal that securit branch had occured NFT List can aplly 'panic' policy. This will drop elements from allow lists, replace deny with 'any host'(0.0.0.0/0 and ::/128) addresses and apply `@onpanic` directives.
+In the case of suspicion that security breach had happen, `nftlist panic` can be used. This will drop elements from allow lists, replace deny with 'any host'(0.0.0.0/0 and ::/128) addresses and apply `@onpanic` directives.
 
 ### Manual run
 By default, configuration from `/etc/nftlists/available/` is loaded, however it can be overwritten:
@@ -333,132 +354,52 @@ nftlist update /etc/my_list.list --includedir /etc/incl_lists/
 nftlist update /etc/my_list.list -D /etc/incl_lists/
 ```
 
+## Examples
+Examples can be found in: [examples directory](examples/). More sophisticated example can be found in ["Nftables docker-compose experimental sandbox"](docker/).
+
+Below you can find a simple practical example of `NFT List` usage.
+
+Blocking VM for accessing repositories (for updates), and GitHub git and api: 
+```
+# file: /etc/nftlists/available/repo_devuan.list
+
+=set inet filter allow_outgoing
+
+# Devuan repositories
+deb.devuan.org
+deb.debian.org
+
+@include github/github-git-inet.list
+@include github/github-api-inet.list
+
+=end
+```
+
 ## Troubleshooting
-In the case of troubles you run:
+In the case of troubles you can use `--verbose`, or `-v` for short option: 
 ```
-nftlist --verbose
+nftlist --verbose ...
 ```
-this will issue verbose messages. If it does not help analyze what exactly is under the hood:
+this will issue verbose messages. If it does not help analyze what exactly below a bunch of helpful commands:
 
 ```bash
-# Stop firewall
-service nftlist stop
-service nftables stop
-
-# checkout defined rules
-# it should be empty
-nft list ruleset
-
-# start firewall
-service nftables stop
-
-
-
-# start nftlist
-service nftlist start
-
-# and verify if sets has been updated
-nft list ruleset
-```
-also you can:
-```bash
-# analyze configuration
+# Checkout defined rules
 nft list ruleset
 
 # List all sets
 nft list sets
 
-# Add set elements manually
-nft add element inet my_table allowed_hosts { 172.22.0.2 }
+# Flush everything
+nft flush ruleset
 ```
-
-NFT provides [counters](https://wiki.nftables.org/wiki-nftables/index.php/Counters) and [log capabilities](https://wiki.nftables.org/wiki-nftables/index.php/Logging_traffic) it can give you some information if traffic is passing through a certain firewall rule or hook.
+NFT provides [counters](https://wiki.nftables.org/wiki-nftables/index.php/Counters) and [log capabilities](https://wiki.nftables.org/wiki-nftables/index.php/Logging_traffic) that can v in finding issues. 
 In tha case of troubles tools such as `tcpdump`, `WireShark`, `conntrack` come in handy.
 
-## Examples
-Simple example can be found in: [example1.1-workstation.nft](examples/example1.1-workstation.nft) and `NFT List`
-[example1.1-workstation.list](examples/example1.1-workstation.list).
-
-Once when NFT with this configuration is loaded (note `flush ruleset` - that purges all previous settings) `allowed_hosts` is empty.
-Therefore, no other host is allowed to let in, access can be open from command line:
-```bash
-nft add element inet my_table allowed_hosts { 172.22.0.2 }
-```
-or `NFT List` can do this for you. Define file such as:
-```
-# /etc/nftdef/allowed_hosts.list
-# host that are allowed for connecting this box
-
-=set inet my_table allowed_hosts # load bellow addresses into 'allowed_hosts' set
-172.22.0.2 # Peer 2
-=end
-```
-
-and load:
-```bash
-nftlist.sh update /etc/nftdef/allowed_hosts.list
-```
-`NFT List` comes with OpenRC init script to load settings a boot time, and cron script for periodic reloads. More in [Part II: Installation and Configuration](#part-ii-installation-and-configuration).
-
-
-#### NFT sets
-
-NFT comes with [NFT sets](https://wiki.nftables.org/wiki-nftables/index.php/Sets) that allow on grouping elements of the same type together.
-Example definition of NFT set looks as follows:
-```
-table inet user_defined_table_name {
-       set user_defined_set_name {
-               type ipv4_addr;
-               flags timeout, interval;
-               auto-merge;
-
-               elements = { 10.0.0.0/8 }
-       }
-}
-```
-
-### White List example
-
-One of the example of whitelisting is to allow outgoing connections to be only possible with a
-very limited number of servers. This can be a list of a domain names that are used for system updates.
-The configuration might look as bellow:
-```
-# file: /etc/nftlists/available/repo_devuan.list
-
-# Devuan repositories
-deb.devuan.org
-deb.debian.org
-```
-```
-# file: /etc/nftlists/enabled/
-
-@set inet filter allow_outgoing
-@include repo_devuan.list
-```
-We can whitelist more resources:
-```
-# file: /etc/nftlists/enabled/
-
-@set inet filter allow_outgoing
-@include repo_devuan.list
-
-10.2.0.100
-example.com
-```
-Note that by splitting configuration to a set of files it become more manageable.
-Also note, that you can mix domain names with IP address.
-
-NFT rule bound to `allow_outgoing` set would be defined in forward chain. The default policy for that chain might be `drop`, the
-rule might be as follows:
-```
-iifname br0 oifname eth0 ip daddr @allow_outgoing tcp dport { 80, 443 } accept
-```
-
 # TODO
-* Move `/etc/nftlist/included` to more aproperiate location such as `/var/lib/nftlist/`
-* Compress "include" resources, think about checksum chek
-* Implement support for `constant` flag
-* Extend `NFT List` by NFT maps, and vmaps
+* Move `/etc/nftlist/included` to more aproperiate location such as `/var/lib/nftlist/`, handle `common lists` with separated package.
+* Compress "include" resources, think about checksum checks.
+* Add support for `constant` flag.
+* Extend `NFT List` by NFT maps, and vmaps.
 * Replace `includes/_local/*` path with a keyword that does include appropriate RFC standard.
 * Add an interactive mode that would work as follows: 
 ```bash
@@ -473,6 +414,20 @@ proceed with update?
       yes    / no / details / help or (y    /n/d/h) - if yes,     update all
   or  yes Ids/ no / details / help or (y Ids/n/d/h) - if yes Ids, update chosen set
  :
+```
+* Introduce sub-lists, list elements featured with a different (extended or overwritten) parameters (timeout, query subdomain) that applys for the part of the list. Syntax should apply Pythons 'indentation' approach, such as: 
+```
+=set inet filter allow
+@query www
+domain1.com
+
+@query = webmail
+  mailserver.com
+
+@query * webmail
+  mailserver2.com
+
+=end
 ```
 
 # Summary
@@ -501,7 +456,7 @@ This tool has been developed as a lite, robust and straightforward solution for 
 * Using iptables-nft: a hybrid Linux firewall [at Redhat.com](https://www.redhat.com/en/blog/using-iptables-nft-hybrid-linux-firewall)
 * [serverfault: nftables: referencing a set from another table](https://serverfault.com/questions/1145318/nftables-referencing-a-set-from-another-table)
 
-**Bad addresses databases**
+**Open lists**
 
 * Phishing Database: [github: mitchellkrogza/Phishing.Database](https://github.com/mitchellkrogza/Phishing.Database/)
 
