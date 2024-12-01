@@ -7,9 +7,9 @@ from pprint import pprint
 command="nftlist"
 
 print(f"Command syntax: \
-{command} <update|purge|panic> [--all]|[--set <address family> <table> <set>] [--configpath] [--includedir <path>] \
+{command} <refresh|clean|panic> [--all]|[--set <address family> <table> <set>] [--configpath] [--includedir <path>] \
 \
-c	update,u - updates NFT sets according to settings from configuration\
+	refresh,r - refresh NFT sets according to settings from configuration\
 	clean,c   - delete all elements of NFT sets referred in configuration\
 	panic,p,! - keep, or discard NFT sets that has been marked by directive @onpanic\
 \

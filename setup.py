@@ -1,7 +1,19 @@
 from setuptools import setup, find_packages
+#from setuptools.command.install ct install
 from setuptools.command.install import install
 import os
 import shutil
+
+# HowTo prepare package and push:
+# install necessary tools:
+# pip install setuptools wheel twine
+# Build package:
+# python setup.py sdist bdist_wheel
+# Install locally to test it:
+# pip install ./dist/pip install ./dist/my_project-0.1.0-py3-none-any.whl-0.1.0-py3-none-any.whl
+#
+# Upload to repository:
+# twine upload dist/*
 
 class PostInstallCommand(install):
     def run(self):

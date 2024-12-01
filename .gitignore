@@ -3,12 +3,14 @@
 dist/
 venv/
 .venv/
-docker/pipes/*
+sandbox/pipes/*
 *.log
 
 # Igonore compiled Python bytecode or other temporary files
+# gnerated by Python
 *~
 *.py[cod]
+*.egg-info/
 
 # Ignore genreated system files
 *.DS_Store

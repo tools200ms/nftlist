@@ -75,7 +75,7 @@ def main():
         print_help()
         sys.exit(0)
 
-    split_ip_addresses(args.input, args.ipv4, args.ipv6)
+    split_ip_addresses( args.input, args.ipv4, args.ipv6 )
 
 
 if __name__ == "__main__":

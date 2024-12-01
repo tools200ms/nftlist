@@ -355,7 +355,7 @@ nftlist update /etc/my_list.list -D /etc/incl_lists/
 ```
 
 ## Examples
-Examples can be found in: [examples directory](examples/). More sophisticated example can be found in ["Nftables docker-compose experimental sandbox"](docker/).
+Examples can be found in: [examples directory](examples/). More sophisticated example can be found in ["Nftables docker-compose experimental sandbox"](sandbox/).
 
 Below you can find a simple practical example of `NFT List` usage.
 
