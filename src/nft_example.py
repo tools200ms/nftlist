@@ -1,4 +1,4 @@
-from nftables import Nftables
+import nftables
 import json
 
 from pprint import pprint

@@ -143,7 +143,6 @@ This has been called **'cork' convention**, below there is a snippet demonstrati
 table inet filtering_machine {
     set allow_ip_list {
         type ipv4_addr;
-        flags timeout;
     }
 
     set ban_ip_list {
@@ -464,6 +463,7 @@ This tool has been developed as a lite, robust and straightforward solution for 
 
 * fw4 Filtering traffic with IP sets by DNS [Openwrt.org](https://openwrt.org/docs/guide-user/firewall/filtering_traffic_at_ip_addresses_by_dns)
 * Python Nftables tutorial: [GitHub](https://github.com/aborrero/python-nftables-tutorial)
+* [Python Nftables module sources](https://github.com/felipequecole/python3-nftables/)
 
 **Othe links**
 

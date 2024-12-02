@@ -1,5 +1,6 @@
 
 # Ignore project build and test directories:
+build/
 dist/
 venv/
 .venv/

@@ -1,14 +1,8 @@
 import os
+import re
 import sys
 from abc import abstractmethod
-from dataclasses import dataclass
 from enum import Enum
-import re
-
-import nftables
-import json
-
-from os import listdir
 from os.path import isfile, isdir, exists, join, normpath, realpath
 
 

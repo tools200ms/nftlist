@@ -46,9 +46,10 @@ setup(
         "Operating System :: POSIX :: Linux"
     ],
     packages=find_packages(),
-    python_requires=">=3.12",
+    python_requires=">=3.10",
     install_requires=[
-        "nft>=2.7"
+        "httpx>=0.28.0",
+        "anyio>=4.6.2.post1"
     ],
     cmdclass={
         'install': PostInstallCommand
