@@ -1,11 +1,17 @@
 import sys
 
-from nftlist.lib.arg_parser import ArgParser
+from nftlist.lib.cli_parser import CliParser
+from nftlist.lib.exceptions import CliSyntaxError
 
 if __name__ == "__main__":
-    mode, fun = ArgParser.parse(sys.argv)
 
-    if mode == None and fun == None:
-        raise Exception("No parameter provided.")
+    try:
+        res = CliParser.parse(sys.argv)
+
+        print( res.__mode )
+    except CliSyntaxError as syntax_err:
+        print(f"CLI Syntax Error: {syntax_err}")
+
+
 
 exit(0)
