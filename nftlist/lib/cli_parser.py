@@ -11,7 +11,7 @@ from nftlist.lib.validators import FileValidator
 
 class CliParser:
 
-    MAIN_CHAIN: Final = '_'
+    MAIN_CHAIN: Final = 'main'
     class Result:
         def __init__(self):
             self.__latest_ref = None
@@ -55,7 +55,7 @@ class CliParser:
             return self.__name
 
     @staticmethod
-    def parse( argv: [str] ):
+    def parse( argv: [str] ) -> Result:
         res = CliParser.Result()
         fun  = None
         obj = None
@@ -78,12 +78,16 @@ class CliParser:
                     res.define('conf', 'file', obj)
                 case '--do_pretend'|'-d':
                     res.define('set', 'pret', True)
-                case 'verbose'|'-V':
+                case '--verbose'|'-V':
                     res.define('set', 'verb', True)
+                case '--debug'|'-D':
+                    res.define('set', 'debg', True)
+                case '--quiet'|'-Q':
+                    res.define('set', 'quiet', True)
                 case '--help'|'-h'|'help':
-                    res.define(CliParser.MAIN_CHAIN, 'msg', CliParser.printHelp)
+                    res.define(CliParser.MAIN_CHAIN, 'msg', About.getHelpMsg)
                 case '--version'|'-v':
-                    res.define(CliParser.MAIN_CHAIN, 'msg', CliParser.printVersion)
+                    res.define(CliParser.MAIN_CHAIN, 'msg', About.getVersionMsg)
                 case _:
                     mode = Mode.findMode(arg)
                     if mode == None:
@@ -97,50 +101,30 @@ class CliParser:
         elif isinstance(fun, CliParser.OptionArg) and not fun.exploited:
             raise CliSyntaxError(f"Missing parameters for option {fun.name}")
 
-        if hasattr(res, '__mode') and hasattr(res, '__msg'):
+        if hasattr(res, 'main_mode') and hasattr(res, 'main_msg'):
             raise CliSyntaxError(f"Unbigous arguments provided, \n    use '--help' for help.")
 
         # finalise:
-        if not hasattr(res, '__mode'):
+        if not hasattr(res, 'main_mode'):
             res.define(CliParser.MAIN_CHAIN, 'mode')
 
-        if not hasattr(res, '__msg'):
+        if not hasattr(res, 'main_msg'):
             res.define(CliParser.MAIN_CHAIN, 'msg')
 
         if not hasattr(res, 'conf_file'):
             res.define('conf', 'file')
 
         if not hasattr(res, 'set_pret'):
-            res.define('set', 'pret')
+            res.define('set', 'pret', False)
 
         if not hasattr(res, 'set_verb'):
-            res.define('set', 'verb')
+            res.define('set', 'verb', False)
+
+        if not hasattr(res, 'set_debg'):
+            res.define('set', 'debg', False)
+
+        if not hasattr(res, 'set_quiet'):
+            res.define('set', 'quiet', False)
 
         return res
-    @staticmethod
-    def printHelp():
-        text = f"Command syntax: \n\
-        {About.command} <refresh|clean|panic> [--config_file|-c <path>] --do_pretend|-d\n\
-\n\
-	refresh,r - Refresh Nftables sets according to settings in configuration.\n\
-	clean,c   - Remove all elements loaded to Nftables sets referred in configuration.\n\
-	panic,p,! - keep, or discard NFT sets that has been marked by directive @onpanic, \n\
-                or determinated as\n\
-\n\
-	Optional: \n\
-	--config_file|-c <path> - path to INI configuration file\n\
-    --do_pretend|-d         - don't do any Nftables modifications, just display what would be done.\n\
-\n\
-{About.command} --help | -h\n\
-	Print this help\n\
-\n\
-{About.command} --version | -v\n\
-	Print version\n\
-        "
-
-        print(text)
-
-    @staticmethod
-    def printVersion():
-        text = f"{About.name}, version: {About.version}\n    by: {About.authors}"
 

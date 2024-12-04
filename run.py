@@ -1,17 +1,8 @@
 import sys
+from nftlist import Nftlist
 
-from nftlist.lib.cli_parser import CliParser
-from nftlist.lib.exceptions import CliSyntaxError
-
+ret_code = 0
 if __name__ == "__main__":
+    ret_code = Nftlist.main(sys.argv)
 
-    try:
-        res = CliParser.parse(sys.argv)
-
-        print( res.__mode )
-    except CliSyntaxError as syntax_err:
-        print(f"CLI Syntax Error: {syntax_err}")
-
-
-
-exit(0)
+exit(ret_code)
