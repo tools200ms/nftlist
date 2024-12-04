@@ -88,6 +88,8 @@ class CliParser:
                     res.define(CliParser.MAIN_CHAIN, 'msg', About.getHelpMsg)
                 case '--version'|'-v':
                     res.define(CliParser.MAIN_CHAIN, 'msg', About.getVersionMsg)
+                case '!':
+                    res.define(CliParser.MAIN_CHAIN, 'mode', Mode.PANIC)
                 case _:
                     mode = Mode.findMode(arg)
                     if mode == None:
@@ -100,9 +102,6 @@ class CliParser:
             raise CliSyntaxError("No parameter provided.")
         elif isinstance(fun, CliParser.OptionArg) and not fun.exploited:
             raise CliSyntaxError(f"Missing parameters for option {fun.name}")
-
-        if hasattr(res, 'main_mode') and hasattr(res, 'main_msg'):
-            raise CliSyntaxError(f"Unbigous arguments provided, \n    use '--help' for help.")
 
         # finalise:
         if not hasattr(res, 'main_mode'):

@@ -1,6 +1,7 @@
 import logging
 from pprint import pprint
 
+from nftlist.core.modes import Mode
 from nftlist.lib.cli_parser import CliParser
 from nftlist.lib.exceptions import CliSyntaxError
 from nftlist.lib.logger import Log
@@ -28,9 +29,21 @@ class Nftlist():
             # else - default logging for 'logging' is: WARNING
             # no need to do anything
 
-            print(res.main_mode)
-            print(res.main_msg())
+            if res.main_msg != None:
+                print(res.main_msg())
+                if res.main_mode != None:
+                    # return error code if excess parameters has been found
+                    return 2
+                else:
+                    return 0
+
+            if res.main_mode == None:
+                raise CliSyntaxError("Mode has not been defined, nothing to do")
+
         except CliSyntaxError as syntax_err:
             Log.error(f"CLI Syntax Error: {syntax_err}")
+            return 1
+
+        res.main_mode.run()
 
         return 0

@@ -1,18 +1,23 @@
+from abc import ABC
 
-class Action:
-    @staticmethod
-    def update():
-        pass
 
-    @staticmethod
-    def refresh():
-        pass
+class Action(ABC):
+    def registerName(self, name: str):
+        self._name = name
 
-    @staticmethod
-    def clean():
-        pass
+    def __str__(self):
+        return self._name
 
-    @staticmethod
-    def panic():
-        pass
+
+class ActionUpdate(Action):
+    pass
+
+class ActionRefresh(Action):
+    pass
+
+class ActionClean(Action):
+    pass
+
+class ActionPanic(Action):
+    pass
 

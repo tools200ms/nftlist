@@ -1,35 +1,34 @@
 from enum import Enum
 
-from nftlist.core.actions import Action
+from nftlist.lib.logger import Log
+from nftlist.core.actions import Action, ActionUpdate, ActionRefresh, ActionClean, ActionPanic
 
 
 class Mode(Enum):
-    class Elem:
-        def __init__(self, name, action):
-            self.__name = name
-            self.__action = action
 
-        def matches(self, str: str) -> bool:
-            return self.__name.startswith(str)
+    UPDATE  = ActionUpdate()
+    REFRESH = ActionRefresh()
+    CLEAN   = ActionClean()
+    PANIC   = ActionPanic()
 
-        @property
-        def action(self):
-            return self.__action
+    def __init__(self, act: Action):
+        act.registerName(self.name)
 
-    UPDATE  = Elem('update', Action.update)
-    REFRESH = Elem('refresh', Action.refresh)
-    CLEAN = Elem('clean', Action.clean)
-    PANIC   = Elem('panic', Action.panic)
+    def __str__(self):
+        return self.name
+
+    def run(self):
+        Log.info(f"Runing in {self.name} mode")
 
     @staticmethod
     def findMode(str: str):
         if len(str) == 0:
             return None
 
+        str = str.upper()
         for mode in Mode:
-            if mode.value().matches(str):
+            if mode.name.startswith(str):
                 return mode
         return None
 
-    def __str__(self):
-        return self.value
+
