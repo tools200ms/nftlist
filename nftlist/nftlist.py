@@ -3,13 +3,13 @@ from pprint import pprint
 
 from nftlist.core.modes import Mode
 from nftlist.lib.cli_parser import CliParser
-from nftlist.lib.exceptions import CliSyntaxError
+from nftlist.lib.exceptions import CliSyntaxError, ValidationFail
 from nftlist.lib.logger import Log
 
 
 class Nftlist():
     @staticmethod
-    def main( argv: [str] ) -> int:
+    def main(argv: [str]) -> int:
         try:
             res = CliParser.parse(argv)
             if res.set_quiet:
@@ -43,7 +43,11 @@ class Nftlist():
         except CliSyntaxError as syntax_err:
             Log.error(f"CLI Syntax Error: {syntax_err}")
             return 1
+        except ValidationFail as valid_fail:
+            Log.error(f"CLI Invalid argument: {valid_fail}")
+            return 2
 
+        print(res.conf_file)
         res.main_mode.run()
 
         return 0

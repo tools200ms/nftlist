@@ -35,16 +35,24 @@ class CliParser:
     class OptionArg:
         def __init__(self, validators: Tuple[Callable[[str], bool]]):
             self.__arg_cnt = len(validators)
-            self.__oargs = (None,) * self.__arg_cnt
+            self.__oargs = [None] * self.__arg_cnt
             self.__carg = 0
             self.__val = validators
+
         def add(self, arg: str):
             if self.__carg >= self.__arg_cnt:
                 return False
-            if self.__val(arg):
+
+            if self.__val[self.__carg](arg):
                 self.__oargs[self.__carg] = arg
                 self.__carg += 1
+            else:
+                return False
+
             return True
+
+        def __str__(self):
+            return ' '.join(self.__oargs)
 
         @property
         def exploited(self):
@@ -58,7 +66,6 @@ class CliParser:
     def parse( argv: [str] ) -> Result:
         res = CliParser.Result()
         fun  = None
-        obj = None
 
         for cnt, arg in enumerate(argv[1:]):
 
@@ -72,8 +79,8 @@ class CliParser:
             match arg:
                 # check for options:
                 case '--config_file'|'-c':
-                    valid = FileValidator( FileValidator.Properties.IS_FILE )
-                    obj = CliParser.OptionArg((valid))
+                    valid = FileValidator.get( FileValidator.Property.IS_FILE )
+                    obj = CliParser.OptionArg((valid,))
 
                     res.define('conf', 'file', obj)
                 case '--do_pretend'|'-d':

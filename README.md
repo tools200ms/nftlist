@@ -464,6 +464,7 @@ This tool has been developed as a lite, robust and straightforward solution for 
 * fw4 Filtering traffic with IP sets by DNS [Openwrt.org](https://openwrt.org/docs/guide-user/firewall/filtering_traffic_at_ip_addresses_by_dns)
 * Python Nftables tutorial: [GitHub](https://github.com/aborrero/python-nftables-tutorial)
 * [Python Nftables module sources](https://github.com/felipequecole/python3-nftables/)
+* [Nftables tutorial](https://ral-arturo.org/2020/11/22/python-nftables-tutorial.html)
 
 **Othe links**
 
