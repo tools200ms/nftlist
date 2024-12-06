@@ -22,12 +22,11 @@ services:
       - MYROLE=client
     volumes:
       - ./pipes:/tmp/pipes
-      - ./src/init.d/nftlist:/etc/init.d/nftlist:ro
-      - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh:ro
-      - ./src/nftlist-little.sh:/usr/local/bin/nftlist-little.sh:ro
-      - ./src/nftlist.py:/usr/local/bin/nftlist.py:ro
+      - ../setup/nftlist.init:/etc/init.d/nftlist:ro
+      - ../setup/refresh-nftlist.sh:/etc/periodic/daily/nftlist.daily.sh:ro
+      - ../nftlist/:/usr/local/bin/nftlist/:ro
 
-      - ./lists:/etc/nftlists/included/predef:ro
+      - ../lists:/etc/nftlists/included/:ro
       - ./examples:/root/examples:ro
 
       - ./src/nft_example.py:/root/bin/nft_example.py:ro

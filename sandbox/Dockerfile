@@ -3,7 +3,11 @@ FROM 200ms/alpinenet_dev2
 # How To build Alpine package:
 # https://wiki.alpinelinux.org/wiki/Creating_an_Alpine_package
 
-ENV FEATURES="dev2fs"
+ENV FEATURES="dev2fs python"
+
+ENV MYROLE="solo"
+ENV MYPIPES_DIR="/tmp/pipes.my"
+ENV PIPES_DIR="/tmp/pipes"
 
 # required  openrc bash nftables jq
 RUN dev2_addtools.sh openrc bash nftables jq \
@@ -19,22 +23,13 @@ RUN dev2_addtools.sh conntrack-tools tcpdump \
 
 RUN dev2_addtools.sh docs
 
-# to launch services inside container:
-RUN mkdir -p /run/openrc && touch /run/openrc/softlevel
+RUN mkdir $MYPIPES_DIR
 
-COPY ./src/init.d/nftlist /etc/init.d/
-COPY ./src/cron/nftlist.daily.sh /etc/periodic/daily/
-
-COPY ./src/nftlist-little.sh /usr/local/bin/
-COPY nftlist/nftlist.py /usr/local/bin/
-
-RUN nftlist-little.sh init
-
-COPY ./lists /etc/nftlists/included/predef
-COPY ./examples /usr/share/nftlist
+RUN feat setup --all
+RUN bash -l -c "pip install nftlist"
 
 # overwrite:
-COPY docker/files/entry.sh /entry2.sh
+COPY files/entry.sh /entry2.sh
 RUN chmod +x /entry2.sh
 
-CMD ["/entry2.sh"]
+ENTRYPOINT ["/entry2.sh"]
