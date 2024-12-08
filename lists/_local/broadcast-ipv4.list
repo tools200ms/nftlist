@@ -1,0 +1,4 @@
+# Broadcast address.
+# Defined in RFC 919 ("Broadcasting Internet Datagrams") and
+# RFC 922 ("Broadcasting Internet Datagrams in the Presence of Subnets").
+255.255.255.255/32

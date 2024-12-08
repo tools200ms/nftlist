@@ -1,18 +1,28 @@
 
-*~
-*.o
-*.so
+# Ignore project build and test directories:
 build/
+dist/
 venv/
+.venv/
+sandbox/pipes/*
+*.log
 
-tcpdump/*
+# Igonore compiled Python bytecode or other temporary files
+# gnerated by Python
+*~
+*.py[cod]
+*.egg-info/
 
-release/
-test/data/
+# Ignore genreated system files
+*.DS_Store
+[Tt]humbs.db
 
-# Development IDEs:
-.kdev4/
+# Ignore GUI specific project directories and files
+# kDevelop files
 *.kdev4
-
+.kdev4/
+# VSCode
+.vscode/
 # JetBrains IDE
 .idea/
+

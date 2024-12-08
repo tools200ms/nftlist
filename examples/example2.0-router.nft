@@ -1,4 +1,4 @@
-#!/sbin/nft -f
+z#!/sbin/nft -f
 
 # Simple, strict firewall and router setup
 

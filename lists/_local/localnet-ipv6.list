@@ -1,0 +1,8 @@
+
+# IPv6 local addresses.
+# Defined in RFC 4193 ("Unique Local IPv6 Unicast Addresses").
+fc00::/7
+
+# IPv6 link-local addresses.
+# Defined in RFC 4291 ("IP Version 6 Addressing Architecture").
+fe80::/64
