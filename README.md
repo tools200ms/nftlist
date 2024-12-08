@@ -1,5 +1,7 @@
 # NFT List
 
+**NOTE: Project under development, avaliable soon**
+
 NFT List provides the functionality for blocking and allowing traffic based on: 
 * Domain names
 * IPv4 and IPv6 hosts and networks
