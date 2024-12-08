@@ -1,9 +1,5 @@
 #!/sbin/nft -f
-
 # Configurable firewall setup
-
-# Set interface name that corresponds to your system settings:
-define NIC = eth0
 
 flush ruleset
 
@@ -11,7 +7,7 @@ table inet work_station {
 
     set allowed_hosts {
         type ipv4_addr;
-        flags timeout, interval;
+        flags interval;
     }
 
     set allowed_tcp_ports {
@@ -30,9 +26,10 @@ table inet work_station {
         ct state { established, related } accept \
             comment "Accept traffic originated from us"
 
-        iifname $NIC tcp dport @allowed_tcp_ports \
-                         ip  saddr @allowed_hosts counter ct state new accept \
-            comment "Accept connections for chosen IPs to selected ports"
+        tcp dport @allowed_tcp_ports \
+            ip saddr @allowed_hosts \
+            ct state new accept \
+            comment "Accept connections from @allowed_hosts to selected ports"
     }
 
     chain forward {
@@ -41,8 +38,7 @@ table inet work_station {
 	}
 
 	chain output {
-		type filter hook output priority filter; policy drop;
+		type filter hook output priority filter; policy accept;
 		# Accept every outbound connection
-
 	}
 }

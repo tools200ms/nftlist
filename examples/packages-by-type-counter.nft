@@ -7,7 +7,9 @@ table ip filter {
 
         chain input {
                 type filter hook input priority filter; policy accept;
-                ip protocol vmap { icmp : jump icmp-chain, tcp : jump tcp-chain, udp : jump udp-chain }
+                ip protocol vmap {  icmp : jump icmp-chain, \
+                                    tcp : jump tcp-chain, \
+                                    udp : jump udp-chain }
         }
 
         chain tcp-chain {

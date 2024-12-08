@@ -4,10 +4,12 @@
 10.0.42.101
 10.0.42.102
 
-@set inet router allowed_ext_ip4hosts
+=set inet router allowed_ext_ip4hosts
 93.184.216.34 # Example.com
 blog.200ms.net
+=end
 
-@set inet router allowed_ext_ip6hosts
+=set inet router allowed_ext_ip6hosts
 2606:2800:220:1:248:1893:25c8:1946 # Example.com
 blog.200ms.net
+=end

@@ -1,5 +1,4 @@
 #!/sbin/nft -f
-
 # Simple, strict firewall setup
 
 flush ruleset
