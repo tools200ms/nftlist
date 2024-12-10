@@ -445,8 +445,8 @@ This tool has been developed as a lite, robust and straightforward solution for 
 
 **HowTo:**
 
-* Nftables Wiki [here](https://wiki.nftables.org/)
-* [Gentoo Nftables guide]((https://wiki.gentoo.org/wiki/Nftables)) (nice and compact, also useful if you use other distro)
+* Official [Nftables Wiki](https://wiki.nftables.org/)
+* [Gentoo Nftables guide](https://wiki.gentoo.org/wiki/Nftables) (nice and compact, also useful for other distro users)
 * [Arch Linux NFT guide](https://wiki.archlinux.org/title/Nftables) (alike Gentoo's, but nothing about howto compile kernel :)
 
 **Theory:**
