@@ -6,6 +6,7 @@ venv/
 .venv/
 sandbox/pipes/*
 *.log
+*.mo
 
 # Igonore compiled Python bytecode or other temporary files
 # gnerated by Python
