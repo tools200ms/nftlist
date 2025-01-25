@@ -1,0 +1,31 @@
+#[build-system]
+#requires = ["setuptools>=42", "wheel"]
+#build-backend = "setuptools.build_meta"
+
+[project]
+name = "nftlist"
+version = "0.1.1"
+description = "NFT complementing tool for blocking/allowing traffic based on domain names, IP or MAC addresses."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Mateusz (Barnaba) Piwek", email = "barnaba@200ms.net" }
+]
+urls = { "Homepage" = "https://github.com/tools200ms/nftlist" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux"
+]
+requires-python = ">=3.10"
+
+dependencies = [
+    "httpx>=0.28.0",
+    "anyio>=4.6.2.post1"
+]
+
+#[tool.setuptools]
+#packages = ["find:"]
+
+#[tool.setuptools.cmdclass]
+#install = "setup:PostInstallCommand"
