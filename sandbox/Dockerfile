@@ -6,6 +6,7 @@ FROM 200ms/alpinenet_dev2
 ENV FEATURES="dev2fs python"
 
 ENV MYROLE="solo"
+# this is to plug WireShark:
 ENV MYPIPES_DIR="/tmp/pipes.my"
 ENV PIPES_DIR="/tmp/pipes"
 

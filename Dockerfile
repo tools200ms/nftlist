@@ -20,4 +20,3 @@ COPY ./nftlist/ /usr/local/bin/nftlist/
 
 COPY ./examples /usr/share/nftlist/
 
-COPY ../setup.py /root/

@@ -66,7 +66,7 @@ The `NFT List` requires Python 3 and a configured NFT firewall. Administrators d
 Project is available in PyPI, to install it use the following commands (root is required): 
 ```commandline
 # Install Python package from repository: 
-pip install nftlist
+pip install nftlist nftlist-lists
 # initialise configuration: 
 nftlist init --download
 ```
