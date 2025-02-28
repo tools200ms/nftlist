@@ -70,7 +70,7 @@ pip install nftlist nftlist-lists
 # initialise configuration: 
 nftlist init --download
 ```
-Option `--download` downloads pre-defined lists that can be used for restricting firewall to traffic to a specific popular servers, such as GitHub or Cloudflare. The complete list can be seen 
+`nftlist-lists` holds pre-defined lists that can be used for restricting firewall to traffic to a specific popular servers, such as GitHub or Cloudflare. The complete list can be seen 
 [here](https://github.com/tools200ms/nftlist/tree/release/lists).
 
 ## Configuration
