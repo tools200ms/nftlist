@@ -9,7 +9,7 @@ NFT List provides the functionality for blocking and allowing traffic based on:
 
 It extends [Linux NFT (Nftables)](https://en.wikipedia.org/wiki/Nftables) firewall and uses [NFT Sets](https://wiki.nftables.org/wiki-nftables/index.php/Sets) to "attach" a specific list. 
 
-It implements the "available-enabled pattern" configuration (refer to the [Configuration section](#configuration)), commonly used in Apache or Nginx, allowing administrators to manage system conveniently.
+It implements the "available-enabled pattern" configuration (refer to the [Configuration section](#configuration)), commonly used in Apache or Nginx, allowing administrators to manage a system conveniently.
 
 **This tool enables administrators to separate the NFT firewall configuration logic (usually defined in `/etc/nftables.*`) from its data - that is access/deny lists.**
 
@@ -135,7 +135,7 @@ As `NFT List` acts after `nft` command, this might bring following security issu
 The first case is difficult to exploit (but still possible), it is due to a short time that is after NFT setup, but before lists are loaded. The second that is a very serious is the result of no-loading `NFT List` due to some kind of system error. 
 
 ### 'Set Corks' convention
-The solution is to *cork* a sets in NFT configuration with `0.0.0.0/0` and `::/128` masks. Hence, Nftables treats all IP's as blacklisted. **`NFT List` removes `0.0.0.0/0` and `::/128` corks once when the lists are loaded**.
+The solution is to *cork* a sets in NFT configuration with `0.0.0.0/0` and `::/128` masks. Hence, Nftables treats all IP's as blacklisted. **`NFT List` removes `0.0.0.0/0` and `::/0` corks once when the lists are loaded**.
 
 **`NFT List` at launch traverses NFT chains and rules to issue warnings about potentially 'opened' rules, suggesting to add 'corks'.**
 
@@ -150,6 +150,7 @@ table inet filtering_machine {
 
     set ban_ip_list {
         type ipv4_addr;
+        flags interval;
         elements = { 0.0.0.0/0 }
     }
     
@@ -342,10 +343,10 @@ DNS `A` or `AAAA` records can change over time, therefore lists should be refres
 It is advised to add to daily cron `service nftlist refresh` so configuration is keep in sync with DNS entries.
 
 ### Panic signal
-In the case of suspicion that security breach had happen, `nftlist panic` can be used. This will drop elements from allow lists, replace deny with 'any host'(0.0.0.0/0 and ::/128) addresses and apply `@onpanic` directives.
+In the case of suspicion that security breach had happened, `nftlist panic` can be used. This will drop elements from allow lists, replace deny with 'any host'(`0.0.0.0/0` and `::/0`) addresses and apply `@onpanic` directives.
 
 ### Manual run
-By default, configuration from `/etc/nftlists/available/` is loaded, however it can be overwritten:
+By default, configuration from `/etc/nftlists/available/` is loaded; however, it can be overwritten:
 ```bash
 nftlist update /etc/my_list.list
 # or

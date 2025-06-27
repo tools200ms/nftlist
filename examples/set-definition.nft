@@ -13,12 +13,14 @@ table inet filtering_machine {
 
     set ban_ip_list {
         type ipv4_addr;
+        flags interval;
         elements = { 0.0.0.0/0 }
     }
 
     set ban_ip6_list {
         type ipv6_addr;
-        elements = { ::/128 }
+        flags interval;
+        elements = { ::/0 }
     }
 
     set allow_mac_list {
