@@ -135,7 +135,7 @@ As `NFT List` acts after `nft` command, this might bring following security issu
 The first case is difficult to exploit (but still possible), it is due to a short time that is after NFT setup, but before lists are loaded. The second that is a very serious is the result of no-loading `NFT List` due to some kind of system error. 
 
 ### 'Set Corks' convention
-The solution is to *cork* a sets in NFT configuration with `0.0.0.0/0` and `::/128` masks. Hence, Nftables treats all IP's as blacklisted. **`NFT List` removes `0.0.0.0/0` and `::/0` corks once when the lists are loaded**.
+The solution is to *cork* a sets in NFT configuration with `0.0.0.0/0` and `::/0` masks. Hence, Nftables treats all IP's as blacklisted. **`NFT List` removes `0.0.0.0/0` and `::/0` corks once when the lists are loaded**.
 
 **`NFT List` at launch traverses NFT chains and rules to issue warnings about potentially 'opened' rules, suggesting to add 'corks'.**
 
