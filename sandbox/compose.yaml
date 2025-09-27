@@ -7,9 +7,8 @@ networks:
 
 
 services:
-  common:
-    build:
-      context: .
+  nftlist-common:
+    build: .
     image: nftlist-common
     command: ["echo", "Build-only service"]
 
@@ -21,7 +20,7 @@ services:
     environment:
       - MYROLE=client
     volumes:
-      - ./pipes:/tmp/pipes
+      - ./pipes:/run/pipes
       - ../setup/nftlist.init:/etc/init.d/nftlist:ro
       - ../setup/refresh-nftlist.sh:/etc/periodic/daily/nftlist.daily.sh:ro
       - ../nftlist/:/usr/local/bin/nftlist/:ro
@@ -32,8 +31,6 @@ services:
       - ./src/nft_example.py:/root/bin/nft_example.py:ro
       - ./test:/root/test:ro
 
-    depends_on:
-      - common
     cap_add: [ 'SYS_ADMIN' ]
     privileged: true
 
@@ -46,7 +43,7 @@ services:
     environment:
       - MYROLE=router
     volumes:
-      - ./tcpdump:/tmp/pipes
+      - ./tcpdump:/run/pipes
       - ./src/init.d/nftlist:/etc/init.d/nftlist:ro
       - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh:ro
       - ./src/nftlist-little.sh:/usr/local/bin/nftlist-little.sh:ro
@@ -58,8 +55,6 @@ services:
       - ./src/nft_example.py:/root/bin/nft_example.py:ro
       - ./test:/root/test:ro
 
-    depends_on:
-      - common
     cap_add: [ 'SYS_ADMIN' ]
     privileged: true
 
@@ -71,7 +66,7 @@ services:
     environment:
       - MYROLE=server
     volumes:
-      - ./tcpdump:/tmp/pipes
+      - ./tcpdump:/run/pipes
       - ./src/init.d/nftlist:/etc/init.d/nftlist:ro
       - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh:ro
       - ./src/nftlist-little.sh:/usr/local/bin/nftlist-little.sh:ro
@@ -83,8 +78,6 @@ services:
       - ./src/nft_example.py:/root/bin/nft_example.py:ro
       - ./test:/root/test:ro
 
-    depends_on:
-      - common
     cap_add: [ 'SYS_ADMIN' ]
     privileged: true
 

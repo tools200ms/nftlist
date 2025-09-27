@@ -7,8 +7,7 @@ ENV FEATURES="dev2fs python"
 
 ENV MYROLE="solo"
 # this is to plug WireShark:
-ENV MYPIPES_DIR="/tmp/pipes.my"
-ENV PIPES_DIR="/tmp/pipes"
+ENV DEV2FS_TARGET="/run/pipes"
 
 # required  openrc bash nftables jq
 RUN dev2_addtools.sh openrc bash nftables jq \
@@ -24,10 +23,10 @@ RUN dev2_addtools.sh conntrack-tools tcpdump \
 
 RUN dev2_addtools.sh docs
 
-RUN mkdir $MYPIPES_DIR
+RUN mkdir $DEV2FS_TARGET
 
 RUN feat setup --all
-RUN bash -l -c "pip install nftlist"
+#RUN bash -l -c "pip install nftlist"
 
 # overwrite:
 COPY files/entry.sh /entry2.sh
