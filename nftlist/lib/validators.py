@@ -3,7 +3,7 @@ from enum import Enum
 from pathlib import Path
 from types import MethodType
 
-from nftlist.lib.exceptions import ValidationFail
+from .lib.exceptions import ValidationFail
 
 
 class Validator(ABC):

@@ -1,7 +1,7 @@
 from enum import Enum
 
-from nftlist.lib.logger import Log
-from nftlist.core.actions import Action, ActionUpdate, ActionRefresh, ActionClean, ActionPanic
+from .lib.logger import Log
+from .core.actions import Action, ActionUpdate, ActionRefresh, ActionClean, ActionPanic
 
 
 class Mode(Enum):

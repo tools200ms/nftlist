@@ -1,6 +1,6 @@
 import configparser
 
-from nftlist.lib.exceptions import IniFileFormatError
+from .lib.exceptions import IniFileFormatError
 
 
 class IniParser():

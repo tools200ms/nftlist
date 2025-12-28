@@ -17,6 +17,10 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: POSIX :: Linux"
 ]
+
+[project.scripts]
+nftlist = "nftlist.cli:main"
+
 requires-python = ">=3.10"
 
 dependencies = [

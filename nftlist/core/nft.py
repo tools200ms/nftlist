@@ -1,5 +1,4 @@
 
-import nftables
 
 class NFT:
     def __init__(self):

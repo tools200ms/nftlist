@@ -8,7 +8,7 @@ networks:
 
 services:
   nftlist-common:
-    build: .
+    build: ..
     image: nftlist-common
     command: ["echo", "Build-only service"]
 
@@ -21,15 +21,16 @@ services:
       - MYROLE=client
     volumes:
       - ./pipes:/run/pipes
-      - ../setup/nftlist.init:/etc/init.d/nftlist:ro
-      - ../setup/refresh-nftlist.sh:/etc/periodic/daily/nftlist.daily.sh:ro
-      - ../nftlist/:/usr/local/bin/nftlist/:ro
+      - ../setup/openrc/nftlist:/etc/init.d/nftlist:ro
+      - ../setup/openrc/nftlist-refresh.sh:/etc/periodic/daily/nftlist.daily.sh:ro
+      - ../nftlist/:/root/nftlist/:ro
+      - ../setup/nftlist:/usr/local/bin/nftlist:ro
 
       - ../lists:/etc/nftlists/included/:ro
-      - ./examples:/root/examples:ro
+      - ../examples:/root/examples:ro
 
-      - ./src/nft_example.py:/root/bin/nft_example.py:ro
-      - ./test:/root/test:ro
+      - ../src/nft_example.py:/root/bin/nft_example.py:ro
+      - ../tests:/root/tests:ro
 
     cap_add: [ 'SYS_ADMIN' ]
     privileged: true
@@ -43,17 +44,17 @@ services:
     environment:
       - MYROLE=router
     volumes:
-      - ./tcpdump:/run/pipes
-      - ./src/init.d/nftlist:/etc/init.d/nftlist:ro
-      - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh:ro
-      - ./src/nftlist-little.sh:/usr/local/bin/nftlist-little.sh:ro
-      - ./src/nftlist.py:/usr/local/bin/nftlist.py:ro
+      - ./pipes:/run/pipes
+      - ../setup/openrc/nftlist:/etc/init.d/nftlist:ro
+      - ../setup/openrc/nftlist-refresh.sh:/etc/periodic/daily/nftlist.daily.sh:ro
+      - ../nftlist/:/root/nftlist/:ro
+      - ../setup/nftlist:/usr/local/bin/nftlist:ro
 
-      - ./lists:/etc/nftlists/included/predef:ro
-      - ./examples:/root/examples:ro
+      - ../lists:/etc/nftlists/included/:ro
+      - ../examples:/root/examples:ro
 
-      - ./src/nft_example.py:/root/bin/nft_example.py:ro
-      - ./test:/root/test:ro
+      - ../src/nft_example.py:/root/bin/nft_example.py:ro
+      - ../tests:/root/tests:ro
 
     cap_add: [ 'SYS_ADMIN' ]
     privileged: true
@@ -66,17 +67,17 @@ services:
     environment:
       - MYROLE=server
     volumes:
-      - ./tcpdump:/run/pipes
-      - ./src/init.d/nftlist:/etc/init.d/nftlist:ro
-      - ./src/cron/nftlist.daily.sh:/etc/periodic/daily/nftlist.daily.sh:ro
-      - ./src/nftlist-little.sh:/usr/local/bin/nftlist-little.sh:ro
-      - ./src/nftlist.py:/usr/local/bin/nftlist.py:ro
+      - ./pipes:/run/pipes
+      - ../setup/openrc/nftlist:/etc/init.d/nftlist:ro
+      - ../setup/openrc/nftlist-refresh.sh:/etc/periodic/daily/nftlist.daily.sh:ro
+      - ../nftlist/:/root/nftlist/:ro
+      - ../setup/nftlist:/usr/local/bin/nftlist:ro
 
-      - ./lists:/etc/nftlists/included/predef:ro
-      - ./examples:/root/examples:ro
+      - ../lists:/etc/nftlists/included/:ro
+      - ../examples:/root/examples:ro
 
-      - ./src/nft_example.py:/root/bin/nft_example.py:ro
-      - ./test:/root/test:ro
+      - ../src/nft_example.py:/root/bin/nft_example.py:ro
+      - ../tests:/root/tests:ro
 
     cap_add: [ 'SYS_ADMIN' ]
     privileged: true

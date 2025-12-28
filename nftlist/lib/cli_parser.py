@@ -3,10 +3,10 @@ import argparse
 from ctypes import Union
 from typing import Callable, Final, Tuple
 
-from nftlist.core.modes import Mode
-from nftlist.lib.about import About
-from nftlist.lib.exceptions import CliSyntaxError
-from nftlist.lib.validators import FileValidator
+from .core.modes import Mode
+from .lib.about import About
+from .lib.errors import CliSyntaxError
+from .lib.validators import FileValidator
 
 
 class CliParser:

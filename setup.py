@@ -16,7 +16,7 @@ class PostInstallCommand(install):
             os.system('systemctl daemon-reload')
             os.system('systemctl enable nftlist.service')
         elif shutil.which("rc-update") is not None:
-            shutil.copy(os.path.join(setup_files_dir, 'nftlist.init'), '/etc/init.d/nftlist')
+            shutil.copy(os.path.join(setup_files_dir, 'nftlist'), '/etc/init.d/nftlist')
             os.system('rc-update add nftlist boot')
 
 setup()
